@@ -4,6 +4,7 @@ import { StreamableHTTPServerTransport } from "@modelcontextprotocol/sdk/server/
 import * as z from "zod/v4";
 import { createIncident, listIncidents, updateIncident, type McpIncidentStatus } from "./hackathonStore";
 import { analyzeIncident } from "./incidentIntelligence";
+import { apiAuthentication, apiRateLimit } from "./security";
 
 const textResult = (value: unknown) => ({ content: [{ type: "text" as const, text: JSON.stringify(value, null, 2) }] });
 
@@ -73,6 +74,7 @@ export function createAndonMcpServer(): McpServer {
 }
 
 export function mountMcpEndpoint(app: Express): void {
+  app.use("/mcp", apiRateLimit, apiAuthentication);
   app.post("/mcp", async (req: Request, res: Response) => {
     const server = createAndonMcpServer();
     const transport = new StreamableHTTPServerTransport({ sessionIdGenerator: undefined, enableJsonResponse: true });

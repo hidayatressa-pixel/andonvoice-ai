@@ -1,4 +1,5 @@
 import { randomUUID } from "node:crypto";
+import { existsSync, readFileSync, renameSync, writeFileSync } from "node:fs";
 
 export type McpIncidentStatus = "calling" | "acknowledged" | "in_progress" | "resolved";
 export interface McpIncident {
@@ -19,7 +20,19 @@ export interface McpIncident {
   resolvedAt?: string;
 }
 
-const incidents: McpIncident[] = [];
+const storeFile = process.env.INCIDENT_STORE_FILE?.trim();
+const incidents: McpIncident[] = (() => {
+  if (!storeFile || !existsSync(storeFile)) return [];
+  try { const data = JSON.parse(readFileSync(storeFile, "utf8")); return Array.isArray(data) ? data : []; }
+  catch { console.error("Incident store could not be read; starting empty."); return []; }
+})();
+
+function persist(): void {
+  if (!storeFile) return;
+  const temporary = `${storeFile}.tmp`;
+  writeFileSync(temporary, JSON.stringify(incidents, null, 2), { mode: 0o600 });
+  renameSync(temporary, storeFile);
+}
 
 export function listIncidents(): McpIncident[] {
   return [...incidents].sort((a, b) => b.createdAt.localeCompare(a.createdAt));
@@ -38,6 +51,7 @@ export function createIncident(input: Omit<McpIncident, "id" | "ticketNo" | "sta
     updatedAt: now
   };
   incidents.push(incident);
+  persist();
   return { incident };
 }
 
@@ -48,6 +62,7 @@ export function updateIncident(id: string, status: McpIncidentStatus): McpIncide
   incident.updatedAt = new Date().toISOString();
   if (status === "acknowledged") incident.acknowledgedAt = incident.updatedAt;
   if (status === "resolved") incident.resolvedAt = incident.updatedAt;
+  persist();
   return incident;
 }
 
@@ -55,6 +70,7 @@ export function deleteIncident(id: string): boolean {
   const index = incidents.findIndex((item) => item.id === id || item.ticketNo === id);
   if (index < 0) return false;
   incidents.splice(index, 1);
+  persist();
   return true;
 }
 

@@ -1,7 +1,7 @@
 {
   "name": "andonvoice-ai",
   "private": false,
-  "version": "0.3.0",
+  "version": "0.4.0",
   "description": "Alexa+ and MCP-powered manufacturing incident response system.",
   "type": "module",
   "scripts": {

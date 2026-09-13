@@ -5,6 +5,7 @@ import dotenv from "dotenv";
 import { mountMcpEndpoint } from "./server/mcpServer";
 import { createIncident, deleteIncident, listIncidents, updateIncident } from "./server/hackathonStore";
 import { analyzeIncident } from "./server/incidentIntelligence";
+import { apiAuthentication, apiRateLimit, securityHeaders } from "./server/security";
 
 dotenv.config();
 
@@ -57,13 +58,17 @@ async function startServer() {
   const PORT = Number(process.env.PORT) || 3000;
 
   app.disable("x-powered-by");
+  app.set("trust proxy", 1);
+  app.use(securityHeaders);
   app.use(express.json({ limit: "32kb" }));
 
   app.get("/api/health", (_req, res) => {
     res.json({ status: "ok", product: "AndonVoice AI", mcpProtocol: "2025-11-25", timestamp: new Date().toISOString() });
   });
 
+  app.use("/api/hackathon", apiRateLimit);
   app.get("/api/hackathon/incidents", (_req, res) => res.json({ incidents: listIncidents() }));
+  app.use("/api/hackathon", (req, res, next) => req.method === "GET" ? next() : apiAuthentication(req, res, next));
   app.post("/api/hackathon/incidents", (req, res) => {
     const { line, lineId, workstation, category, description, lineStopped, createdBy, severity } = req.body || {};
     if (typeof line !== "string" || typeof description !== "string" || typeof createdBy !== "string" || !["machine", "material", "quality", "safety", "leader"].includes(category)) {
