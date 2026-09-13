@@ -1,7 +1,7 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import { Bot, Check, Mic, Send, ShieldCheck, Sparkles, X } from "lucide-react";
 import type { AndonCall, AndonLine, AppLanguage, AppTheme, BrandConfig, UserProfile } from "../types";
-import { canExecuteVoiceIntent, formatActiveCalls, formatDowntimeSummary, formatIncidentDetail, formatLineInventory, formatSituationSummary, formatStoppedLines, parseVoiceCommand, type ParsedVoiceCommand, type VoiceIntent } from "../hackathon/voiceCommand";
+import { canExecuteVoiceIntent, formatActiveCalls, formatDowntimeSummary, formatIncidentDetail, formatLineInventory, formatLiveContextUpdate, formatSituationSummary, formatStoppedLines, parseVoiceCommand, type ParsedVoiceCommand, type VoiceIntent } from "../hackathon/voiceCommand";
 
 interface AlexaVoiceExperienceProps {
   lines: AndonLine[];
@@ -46,12 +46,30 @@ export const AlexaVoiceExperience: React.FC<AlexaVoiceExperienceProps> = ({ line
   const [listening, setListening] = useState(false);
   const recognitionRef = useRef<SpeechRecognitionInstance | null>(null);
   const lastIntentRef = useRef<VoiceIntent>("unknown");
+  const previousOpenRef = useRef(false);
+  const liveContextSignatureRef = useRef("");
   const activeLine = lines.find((line) => line.id === selectedLineId) || lines[0];
   const examples = language === "id" ? INDONESIAN_EXAMPLES : ENGLISH_EXAMPLES;
   const appName = branding.customAppName || "AndonVoice AI";
   const supported = useMemo(() => typeof window !== "undefined" && ("SpeechRecognition" in window || "webkitSpeechRecognition" in window), []);
 
   useEffect(() => () => { recognitionRef.current?.abort(); recognitionRef.current = null; }, []);
+
+  const liveContextSignature = useMemo(() => calls
+    .filter((call) => call.status !== "resolved")
+    .map((call) => `${call.id}:${call.status}:${call.isLineStopped}`)
+    .sort()
+    .join("|"), [calls]);
+
+  useEffect(() => {
+    const justOpened = open && !previousOpenRef.current;
+    const contextChanged = open && liveContextSignatureRef.current !== liveContextSignature;
+    if (justOpened || contextChanged) {
+      setMessages((prev) => [...prev, { role: "assistant", text: formatLiveContextUpdate(calls, language) }]);
+      liveContextSignatureRef.current = liveContextSignature;
+    }
+    previousOpenRef.current = open;
+  }, [calls, language, liveContextSignature, open]);
 
   const respond = (transcript: string) => {
     const parsed = parseVoiceCommand(transcript, lines, { language, activeLine, workstation: activeLine?.workstations[0], lastIntent: lastIntentRef.current, focusedIncident });

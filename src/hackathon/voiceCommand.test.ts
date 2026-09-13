@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { INITIAL_LINES } from "../utils/initialData";
-import { canExecuteVoiceIntent, formatIncidentDetail, formatLineInventory, formatSituationSummary, formatStoppedLines, parseVoiceCommand } from "./voiceCommand";
+import { canExecuteVoiceIntent, formatIncidentDetail, formatLineInventory, formatLiveContextUpdate, formatSituationSummary, formatStoppedLines, parseVoiceCommand } from "./voiceCommand";
 
 describe("parseVoiceCommand", () => {
   it("requires confirmation before creating a critical call", () => {
@@ -58,6 +58,12 @@ describe("parseVoiceCommand", () => {
     expect(summary).toContain("1 panggilan aktif");
     expect(summary).toContain("Headlamp Assembly A");
     expect(summary).toContain("3 menit");
+  });
+
+  it("announces refreshed live context when an active call appears", () => {
+    const calls = [{ id: "1", ticketNo: "AV-1", lineId: "line-a", lineName: "Headlamp Assembly A", workstation: "Loading", category: "machine_breakdown" as const, severity: "critical_line_stop" as const, isLineStopped: true, operatorName: "Operator", operatorId: "OP-1", description: "Sensor fault", timestamp: Date.now(), status: "calling" as const }];
+    expect(formatLiveContextUpdate(calls, "id")).toContain("1 panggilan aktif dan 1 line stop");
+    expect(formatLiveContextUpdate([], "en")).toContain("plant is normal");
   });
 
   it("does not mistake the Indonesian word yang for an NG quality category", () => {

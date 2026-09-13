@@ -140,6 +140,18 @@ export function formatActiveCalls(calls: AndonCall[], language: "id" | "en" = "e
   return language === "id" ? `${active.length} panggilan belum selesai: ${list}.` : `${active.length} unresolved call${active.length === 1 ? "" : "s"}: ${list}.`;
 }
 
+export function formatLiveContextUpdate(calls: AndonCall[], language: "id" | "en" = "en"): string {
+  const active = calls.filter((call) => call.status !== "resolved");
+  const stopped = active.filter((call) => call.isLineStopped);
+  if (!active.length) return language === "id"
+    ? "Konteks live diperbarui: plant normal, tanpa panggilan aktif atau line stop."
+    : "Live context refreshed: the plant is normal, with no active calls or line stops.";
+  const affectedLines = [...new Set(active.map((call) => call.lineName))].join(", ");
+  return language === "id"
+    ? `Pembaruan live: ${active.length} panggilan aktif dan ${stopped.length} line stop pada ${affectedLines}.`
+    : `Live update: ${active.length} active call${active.length === 1 ? "" : "s"} and ${stopped.length} line stop${stopped.length === 1 ? "" : "s"} on ${affectedLines}.`;
+}
+
 export function formatLineInventory(lines: AndonLine[], department: string | undefined, language: "id" | "en" = "en"): string {
   if (!department) {
     const departments = [...new Set(lines.map((line) => line.department).filter(Boolean))];
