@@ -143,13 +143,18 @@ function setLocalStorageData<T>(key: string, data: T): void {
   }
 }
 
+function getNonEmptyDemoData<T>(key: string, fallback: T[]): T[] {
+  const stored = getLocalStorageData<T[]>(key, fallback);
+  return stored.length > 0 ? stored : fallback;
+}
+
 // In-Memory Demo State
 const demoState = {
   calls: getLocalStorageData<AndonCall[]>(DEMO_KEYS.CALLS, []),
-  lines: getLocalStorageData<AndonLine[]>(DEMO_KEYS.LINES, INITIAL_LINES),
-  machines: getLocalStorageData<MasterMachine[]>(DEMO_KEYS.MACHINES, INITIAL_MACHINES),
+  lines: getNonEmptyDemoData<AndonLine>(DEMO_KEYS.LINES, INITIAL_LINES),
+  machines: getNonEmptyDemoData<MasterMachine>(DEMO_KEYS.MACHINES, INITIAL_MACHINES),
   logs: getLocalStorageData<ActivityLog[]>(DEMO_KEYS.LOGS, []),
-  operators: getLocalStorageData<UserProfile[]>(DEMO_KEYS.OPERATORS, DEFAULT_USERS)
+  operators: getNonEmptyDemoData<UserProfile>(DEMO_KEYS.OPERATORS, DEFAULT_USERS)
 };
 
 // Subscriber Registry

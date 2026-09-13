@@ -1,1 +1,27 @@
 @import "tailwindcss";
+
+html {
+  overflow-y: scroll;
+  scrollbar-gutter: stable;
+}
+
+@keyframes andon-view-enter {
+  from {
+    opacity: 0;
+    transform: translateY(4px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.andon-view-transition {
+  animation: andon-view-enter 160ms ease-out both;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .andon-view-transition {
+    animation: none;
+  }
+}

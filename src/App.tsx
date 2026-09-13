@@ -79,14 +79,16 @@ export default function App() {
   return <div className={`min-h-screen flex flex-col font-sans antialiased transition-colors duration-200 ${isLight?"bg-slate-100 text-slate-900":"bg-neutral-950 text-neutral-100"}`}>
     <Header activeTab={activeTab} setActiveTab={setActiveTab} activeCalls={calls} soundConfig={soundConfig} setSoundConfig={setSoundConfig} currentUser={currentUser} previewRole={previewRole} onOpenLogin={()=>{if(isAdmin)setIsRolePreviewOpen(true);}} onLogout={handleLogout} onOpenConfig={()=>{if(isAdmin)setIsConfigOpen(true);}} onSimulateEmergency={handleSimulateEmergency} theme={theme} setTheme={setTheme} language={language} setLanguage={setLanguage}/>
     <main className="flex-1 max-w-7xl w-full mx-auto p-4 sm:p-6 lg:p-8">
-      {activeTab==="main_board"&&<MainAndonBoard lines={lines} calls={calls} onSelectCall={setInspectedCall} onNavigateToCall={(lineId)=>{setSelectedLineId(lineId);setActiveTab("operator_call");}} theme={theme} language={language}/>} 
-      {activeTab==="operator_call"&&<OperatorTerminal lines={lines} activeCalls={calls} selectedLineId={selectedLineId} setSelectedLineId={setSelectedLineId} onSubmitCall={handleCreateCall} onCancelCall={handleCancelCall} currentUser={viewUser} theme={theme} language={language}/>} 
-      {activeTab==="responder_terminal"&&<ResponderDashboard calls={calls} onUpdateCallStatus={handleUpdateCallStatus} currentUser={viewUser} theme={theme} language={language}/>} 
-      {activeTab==="plant_map"&&<PlantLayoutMap lines={lines} activeCalls={calls} onSelectLine={(lineId)=>{setSelectedLineId(lineId);setActiveTab("operator_call");}} onSelectCall={setInspectedCall} theme={theme} language={language}/>} 
-      {activeTab==="master_data"&&isAdminView&&<MasterDataManager lines={lines} currentUser={currentUser} theme={theme} language={language}/>} 
-      {activeTab==="admin_dashboard"&&isAdminView&&<AdminDashboard lines={lines} calls={calls} currentUser={currentUser} theme={theme} language={language}/>} 
-      {activeTab==="activity_logs"&&<ActivityLogsViewer logs={activityLogs} currentUser={viewUser} theme={theme} language={language}/>} 
-      {activeTab==="analytics_reports"&&<AnalyticsReports calls={calls} lines={lines} activityLogs={activityLogs} theme={theme} language={language}/>} 
+      <div key={activeTab} className="andon-view-transition">
+        {activeTab==="main_board"&&<MainAndonBoard lines={lines} calls={calls} onSelectCall={setInspectedCall} onNavigateToCall={(lineId)=>{setSelectedLineId(lineId);setActiveTab("operator_call");}} theme={theme} language={language}/>}
+        {activeTab==="operator_call"&&<OperatorTerminal lines={lines} activeCalls={calls} selectedLineId={selectedLineId} setSelectedLineId={setSelectedLineId} onSubmitCall={handleCreateCall} onCancelCall={handleCancelCall} currentUser={viewUser} theme={theme} language={language}/>}
+        {activeTab==="responder_terminal"&&<ResponderDashboard calls={calls} onUpdateCallStatus={handleUpdateCallStatus} currentUser={viewUser} theme={theme} language={language}/>}
+        {activeTab==="plant_map"&&<PlantLayoutMap lines={lines} activeCalls={calls} onSelectLine={(lineId)=>{setSelectedLineId(lineId);setActiveTab("operator_call");}} onSelectCall={setInspectedCall} theme={theme} language={language}/>}
+        {activeTab==="master_data"&&isAdminView&&<MasterDataManager lines={lines} currentUser={currentUser} theme={theme} language={language}/>}
+        {activeTab==="admin_dashboard"&&isAdminView&&<AdminDashboard lines={lines} calls={calls} currentUser={currentUser} theme={theme} language={language}/>}
+        {activeTab==="activity_logs"&&<ActivityLogsViewer logs={activityLogs} currentUser={viewUser} theme={theme} language={language}/>}
+        {activeTab==="analytics_reports"&&<AnalyticsReports calls={calls} lines={lines} activityLogs={activityLogs} theme={theme} language={language}/>}
+      </div>
     </main>
     <CallDetailModal call={inspectedCall} onClose={()=>setInspectedCall(null)} onUpdateStatus={handleUpdateCallStatus} theme={theme} language={language}/>
     {isAdmin&&<ConfigModal isOpen={isConfigOpen} onClose={()=>setIsConfigOpen(false)} soundConfig={soundConfig} setSoundConfig={setSoundConfig} lines={lines} onUpdateLineTarget={handleUpdateLineTarget} theme={theme} setTheme={setTheme} language={language} setLanguage={setLanguage} currentUser={currentUser}/>} 
