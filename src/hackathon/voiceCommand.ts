@@ -1,6 +1,6 @@
 import type { AndonCall, AndonLine, CallCategory, CallSeverity, UserRole } from "../types";
 
-export type VoiceIntent = "create_call" | "list_active" | "downtime_summary" | "situation_summary" | "help" | "set_language" | "select_line" | "unknown";
+export type VoiceIntent = "create_call" | "list_active" | "list_stopped_lines" | "downtime_summary" | "situation_summary" | "help" | "set_language" | "select_line" | "unknown";
 
 export interface ParsedVoiceCommand {
   intent: VoiceIntent;
@@ -17,14 +17,14 @@ export interface ParsedVoiceCommand {
   targetLanguage?: "id" | "en";
 }
 
-export interface VoiceContext { language?: "id" | "en"; activeLine?: AndonLine; workstation?: string; }
+export interface VoiceContext { language?: "id" | "en"; activeLine?: AndonLine; workstation?: string; lastIntent?: VoiceIntent; }
 
 const CATEGORY_PATTERNS: Array<{ pattern: RegExp; category: CallCategory; label: string }> = [
-  { pattern: /machine|mesin|breakdown|sensor|robot/i, category: "machine_breakdown", label: "machine breakdown" },
-  { pattern: /material|part|shortage|kekurangan/i, category: "material_shortage", label: "material shortage" },
-  { pattern: /quality|defect|reject|ng|cacat/i, category: "quality_defect", label: "quality defect" },
-  { pattern: /safety|unsafe|accident|keselamatan/i, category: "safety_alert", label: "safety alert" },
-  { pattern: /leader|supervisor|support|bantuan/i, category: "leader_call", label: "leader support" }
+  { pattern: /\b(machine|mesin|breakdown|sensor|robot)\b/i, category: "machine_breakdown", label: "machine breakdown" },
+  { pattern: /\b(material|part|shortage|kekurangan)\b/i, category: "material_shortage", label: "material shortage" },
+  { pattern: /\b(quality|defect|reject|ng|cacat)\b/i, category: "quality_defect", label: "quality defect" },
+  { pattern: /\b(safety|unsafe|accident|keselamatan)\b/i, category: "safety_alert", label: "safety alert" },
+  { pattern: /\b(leader|supervisor|support|bantuan)\b/i, category: "leader_call", label: "leader support" }
 ];
 
 function normalize(value: string): string {
@@ -62,6 +62,10 @@ export function parseVoiceCommand(transcript: string, lines: AndonLine[], contex
   if (/downtime|longest stop|loss time/i.test(clean)) {
     return { intent: "downtime_summary", transcript: clean, requiresConfirmation: false, confidence: 0.96, response: isId ? "Saya akan merangkum downtime saat ini." : "I will summarize current downtime." };
   }
+  if (/(line|lini)\s+mana\s*(saja|lagi)?.*(stop|berhenti)|(?:mana|daftar).*(line|lini).*(stop|berhenti)|which lines?.*(stopped|down)/i.test(clean)
+      || (/^(lalu|terus|kemudian)?\s*(line|lini)\s+mana\s+lagi/i.test(clean) && ["list_stopped_lines", "situation_summary", "downtime_summary"].includes(context.lastIntent || "unknown"))) {
+    return { intent: "list_stopped_lines", transcript: clean, requiresConfirmation: false, confidence: 0.98, response: isId ? "Saya akan menyebutkan line yang sedang berhenti." : "I will list the stopped production lines." };
+  }
   if (/apa\s*(yang|yg)?\s*terjadi|situasi|kondisi sekarang|what(?:'s| is) happening|current situation|kenapa.*(?:line|lini).*(?:stop|berhenti)/i.test(clean)) {
     return { intent: "situation_summary", transcript: clean, requiresConfirmation: false, confidence: 0.97, response: isId ? "Saya akan membaca situasi Andon saat ini." : "I will read the current Andon situation." };
   }
@@ -71,7 +75,7 @@ export function parseVoiceCommand(transcript: string, lines: AndonLine[], contex
 
   const matchedCategory = CATEGORY_PATTERNS.find(({ pattern }) => pattern.test(clean));
   const line = findLine(clean, lines) || context.activeLine;
-  if (/report|create|call|issue|problem|stop|lapor|panggil/i.test(clean) && matchedCategory) {
+  if (/\b(report|create|call|issue|problem|lapor|laporkan|panggil|panggilan)\b/i.test(clean) && matchedCategory) {
     if (!line) {
       return { intent: "create_call", transcript: clean, category: matchedCategory.category, requiresConfirmation: false, confidence: 0.55, response: isId ? `Masalah ${matchedCategory.label} terdeteksi, tetapi pilih line produksi terlebih dahulu.` : `I detected ${matchedCategory.label}, but I need a valid production line.` };
     }
@@ -138,4 +142,18 @@ export function formatSituationSummary(calls: AndonCall[], activeLine: AndonLine
   return language === "id"
     ? `Saat ini ada ${active.length} panggilan aktif dan ${stops.length} kondisi line stop.${focusText}${priority}`
     : `There are ${active.length} active calls and ${stops.length} line stops.${focusText}${priority}`;
+}
+
+export function formatStoppedLines(calls: AndonCall[], language: "id" | "en" = "en", now = Date.now()): string {
+  const stopped = calls.filter((call) => call.status !== "resolved" && call.isLineStopped);
+  if (!stopped.length) return language === "id" ? "Tidak ada line yang sedang mengalami stop." : "No production line is currently stopped.";
+  const byLine = new Map<string, AndonCall>();
+  for (const call of [...stopped].sort((a, b) => a.timestamp - b.timestamp)) if (!byLine.has(call.lineId)) byLine.set(call.lineId, call);
+  const details = [...byLine.values()].map((call) => {
+    const minutes = Math.max(1, Math.floor((now - call.timestamp) / 60_000));
+    return language === "id"
+      ? `${call.lineName} di ${call.workstation}, ${minutes} menit, ${statusLabel(call.status, language)}`
+      : `${call.lineName} at ${call.workstation}, ${minutes} minutes, ${statusLabel(call.status, language)}`;
+  });
+  return language === "id" ? `${details.length} line sedang stop: ${details.join("; ")}.` : `${details.length} lines are stopped: ${details.join("; ")}.`;
 }

@@ -1,7 +1,7 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import { Bot, Check, Mic, Send, ShieldCheck, Sparkles, X } from "lucide-react";
 import type { AndonCall, AndonLine, AppLanguage, AppTheme, BrandConfig, UserProfile } from "../types";
-import { canExecuteVoiceIntent, formatActiveCalls, formatDowntimeSummary, formatSituationSummary, parseVoiceCommand, type ParsedVoiceCommand } from "../hackathon/voiceCommand";
+import { canExecuteVoiceIntent, formatActiveCalls, formatDowntimeSummary, formatSituationSummary, formatStoppedLines, parseVoiceCommand, type ParsedVoiceCommand, type VoiceIntent } from "../hackathon/voiceCommand";
 
 interface AlexaVoiceExperienceProps {
   lines: AndonLine[];
@@ -44,6 +44,7 @@ export const AlexaVoiceExperience: React.FC<AlexaVoiceExperienceProps> = ({ line
   ]);
   const [listening, setListening] = useState(false);
   const recognitionRef = useRef<SpeechRecognitionInstance | null>(null);
+  const lastIntentRef = useRef<VoiceIntent>("unknown");
   const activeLine = lines.find((line) => line.id === selectedLineId) || lines[0];
   const examples = language === "id" ? INDONESIAN_EXAMPLES : ENGLISH_EXAMPLES;
   const appName = branding.customAppName || "AndonVoice AI";
@@ -52,15 +53,17 @@ export const AlexaVoiceExperience: React.FC<AlexaVoiceExperienceProps> = ({ line
   useEffect(() => () => { recognitionRef.current?.abort(); recognitionRef.current = null; }, []);
 
   const respond = (transcript: string) => {
-    const parsed = parseVoiceCommand(transcript, lines, { language, activeLine, workstation: activeLine?.workstations[0] });
+    const parsed = parseVoiceCommand(transcript, lines, { language, activeLine, workstation: activeLine?.workstations[0], lastIntent: lastIntentRef.current });
     let response = parsed.response;
     if (!canExecuteVoiceIntent(currentUser.role, parsed.intent)) response = language === "id" ? "Role pengguna saat ini tidak memiliki wewenang untuk tindakan tersebut." : "Your current role is not authorized for that action.";
     else if (parsed.intent === "set_language" && parsed.targetLanguage) onLanguageChange(parsed.targetLanguage);
     else if (parsed.intent === "select_line" && parsed.lineId) onLineChange(parsed.lineId);
     else if (parsed.intent === "list_active") response = formatActiveCalls(calls, language);
+    else if (parsed.intent === "list_stopped_lines") response = formatStoppedLines(calls, language);
     else if (parsed.intent === "downtime_summary") response = formatDowntimeSummary(calls, Date.now(), language);
     else if (parsed.intent === "situation_summary") response = formatSituationSummary(calls, activeLine, language);
     setMessages((prev) => [...prev, { role: "user", text: transcript }, { role: "assistant", text: response }]);
+    lastIntentRef.current = parsed.intent;
     setPending(parsed.requiresConfirmation ? parsed : null);
     setInput("");
   };

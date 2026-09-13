@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { INITIAL_LINES } from "../utils/initialData";
-import { canExecuteVoiceIntent, formatSituationSummary, parseVoiceCommand } from "./voiceCommand";
+import { canExecuteVoiceIntent, formatSituationSummary, formatStoppedLines, parseVoiceCommand } from "./voiceCommand";
 
 describe("parseVoiceCommand", () => {
   it("requires confirmation before creating a critical call", () => {
@@ -58,6 +58,25 @@ describe("parseVoiceCommand", () => {
     expect(summary).toContain("1 panggilan aktif");
     expect(summary).toContain("Headlamp Assembly A");
     expect(summary).toContain("3 menit");
+  });
+
+  it("does not mistake the Indonesian word yang for an NG quality category", () => {
+    const result = parseVoiceCommand("Line mana saja yang mengalami stop?", INITIAL_LINES, { language: "id" });
+    expect(result.intent).toBe("list_stopped_lines");
+    expect(result.requiresConfirmation).toBe(false);
+    expect(result.category).toBeUndefined();
+  });
+
+  it("keeps context for a follow-up asking for other stopped lines", () => {
+    const result = parseVoiceCommand("Lalu line mana lagi?", INITIAL_LINES, { language: "id", lastIntent: "list_stopped_lines" });
+    expect(result.intent).toBe("list_stopped_lines");
+  });
+
+  it("lists each stopped production line once", () => {
+    const now = Date.now();
+    const base = { ticketNo: "AV", workstation: "Loading", category: "machine_breakdown" as const, severity: "critical_line_stop" as const, isLineStopped: true, operatorName: "OP", operatorId: "OP", description: "Fault", timestamp: now - 60_000, status: "calling" as const };
+    const text = formatStoppedLines([{ ...base, id: "1", lineId: "line-a", lineName: "Line A" }, { ...base, id: "2", lineId: "line-a", lineName: "Line A" }, { ...base, id: "3", lineId: "line-b", lineName: "Line B" }], "id", now);
+    expect(text).toContain("2 line sedang stop");
   });
 });
 
