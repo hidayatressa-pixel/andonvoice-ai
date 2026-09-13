@@ -34,6 +34,18 @@ describe("parseVoiceCommand", () => {
     expect(result.intent).toBe("set_language");
     expect(result.targetLanguage).toBe("id");
   });
+
+  it("uses the application active line when the command omits a line", () => {
+    const result = parseVoiceCommand("Laporkan kerusakan mesin, line stop", INITIAL_LINES, { language: "id", activeLine: INITIAL_LINES[1] });
+    expect(result.lineId).toBe(INITIAL_LINES[1].id);
+    expect(result.requiresConfirmation).toBe(true);
+  });
+
+  it("changes the shared active line through conversation", () => {
+    const result = parseVoiceCommand("Pilih line SLC-C", INITIAL_LINES, { language: "id" });
+    expect(result.intent).toBe("select_line");
+    expect(result.lineId).toBe("line-c");
+  });
 });
 
 describe("voice authorization", () => {

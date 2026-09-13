@@ -23,6 +23,8 @@ import { CATEGORIES_DATA } from "./utils/categories";
 import { canManageMasterData, canManageSettings } from "./utils/permissions";
 import { createUnifiedCall, deleteUnifiedCall, fetchUnifiedCalls, updateUnifiedCall } from "./hackathon/incidentApi";
 import { IS_DEMO_MODE } from "./lib/firestoreService";
+import { loadSavedBranding } from "./utils/branding";
+import type { BrandConfig } from "./types";
 
 const secureRandomIndex = (length: number): number => { if (length <= 1) return 0; const values = new Uint32Array(1); crypto.getRandomValues(values); return values[0] % length; };
 
@@ -40,6 +42,7 @@ export default function App() {
   const [isRolePreviewOpen, setIsRolePreviewOpen] = useState(false);
   const [inspectedCall, setInspectedCall] = useState<AndonCall | null>(null);
   const [isConfigOpen, setIsConfigOpen] = useState(false);
+  const [branding, setBranding] = useState<BrandConfig>(loadSavedBranding);
   const isAdmin = canManageSettings(currentUser);
   const viewUser: UserProfile | null = currentUser && isAdmin ? { ...currentUser, role: previewRole, lineAccess: previewRole === "admin" ? currentUser.lineAccess : [] } : currentUser;
   const isAdminView = viewUser?.role === "admin";
@@ -57,6 +60,7 @@ export default function App() {
   }, []);
   useEffect(() => { if (!viewUser) return; if (!isAdminView && (activeTab === "admin_dashboard" || activeTab === "master_data")) setActiveTab(viewUser.role === "operator" ? "operator_call" : "main_board"); }, [previewRole, viewUser?.role]);
   useEffect(() => { if (!isAdmin && isConfigOpen) setIsConfigOpen(false); }, [isAdmin, isConfigOpen]);
+  useEffect(() => { const handler = (event: Event) => setBranding((event as CustomEvent<BrandConfig>).detail || loadSavedBranding()); window.addEventListener("andon_brand_change", handler); return () => window.removeEventListener("andon_brand_change", handler); }, []);
 
   const recalculateLineStatuses=useCallback((currentCalls:AndonCall[])=>{setLines(prev=>prev.map(line=>{const lineActiveCalls=currentCalls.filter(c=>c.lineId===line.id&&c.status!=="resolved");const hasStop=lineActiveCalls.some(c=>c.isLineStopped);return{...line,status:hasStop?"critical":lineActiveCalls.length>0?"warning":"running",activeCallsCount:lineActiveCalls.length};}));},[]);
   useEffect(()=>{recalculateLineStatuses(calls);},[calls,recalculateLineStatuses]);
@@ -87,7 +91,7 @@ export default function App() {
     <CallDetailModal call={inspectedCall} onClose={()=>setInspectedCall(null)} onUpdateStatus={handleUpdateCallStatus} theme={theme} language={language}/>
     {isAdmin&&<ConfigModal isOpen={isConfigOpen} onClose={()=>setIsConfigOpen(false)} soundConfig={soundConfig} setSoundConfig={setSoundConfig} lines={lines} onUpdateLineTarget={handleUpdateLineTarget} theme={theme} setTheme={setTheme} language={language} setLanguage={setLanguage} currentUser={currentUser}/>} 
     {isAdmin&&<AdminRolePreviewModal isOpen={isRolePreviewOpen} onClose={()=>setIsRolePreviewOpen(false)} role={previewRole} onChangeRole={handlePreviewRole} theme={theme} language={language}/>} 
-    <AlexaVoiceExperience lines={lines} calls={calls} currentUser={currentUser} language={language} onLanguageChange={setLanguage} onCreateCall={handleCreateCall}/>
+    <AlexaVoiceExperience lines={lines} calls={calls} currentUser={currentUser} language={language} onLanguageChange={setLanguage} theme={theme} branding={branding} selectedLineId={selectedLineId} onLineChange={setSelectedLineId} onCreateCall={handleCreateCall}/>
     <HackathonDemoCenter onRunScenario={handleSimulateEmergency}/>
   </div>;
 }
