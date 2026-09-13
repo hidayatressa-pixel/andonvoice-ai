@@ -1,6 +1,6 @@
 import type { AndonCall, AndonLine, CallCategory, CallSeverity, UserRole } from "../types";
 
-export type VoiceIntent = "create_call" | "list_active" | "downtime_summary" | "help" | "set_language" | "select_line" | "unknown";
+export type VoiceIntent = "create_call" | "list_active" | "downtime_summary" | "situation_summary" | "help" | "set_language" | "select_line" | "unknown";
 
 export interface ParsedVoiceCommand {
   intent: VoiceIntent;
@@ -62,6 +62,9 @@ export function parseVoiceCommand(transcript: string, lines: AndonLine[], contex
   if (/downtime|longest stop|loss time/i.test(clean)) {
     return { intent: "downtime_summary", transcript: clean, requiresConfirmation: false, confidence: 0.96, response: isId ? "Saya akan merangkum downtime saat ini." : "I will summarize current downtime." };
   }
+  if (/apa\s*(yang|yg)?\s*terjadi|situasi|kondisi sekarang|what(?:'s| is) happening|current situation|kenapa.*(?:line|lini).*(?:stop|berhenti)/i.test(clean)) {
+    return { intent: "situation_summary", transcript: clean, requiresConfirmation: false, confidence: 0.97, response: isId ? "Saya akan membaca situasi Andon saat ini." : "I will read the current Andon situation." };
+  }
   if (/(show|list|what|which).*(active|open|unresolved)|active calls|panggilan aktif/i.test(clean)) {
     return { intent: "list_active", transcript: clean, requiresConfirmation: false, confidence: 0.96, response: isId ? "Saya akan menampilkan panggilan Andon yang belum selesai." : "I will list unresolved Andon calls." };
   }
@@ -109,4 +112,30 @@ export function formatDowntimeSummary(calls: AndonCall[], now = Date.now(), lang
   const longest = [...activeStops].sort((a, b) => a.timestamp - b.timestamp)[0];
   const minutes = Math.max(1, Math.floor((now - longest.timestamp) / 60_000));
   return language === "id" ? `${activeStops.length} line stop sedang aktif. Downtime terlama adalah ${longest.lineName}, selama ${minutes} menit.` : `${activeStops.length} line stop${activeStops.length === 1 ? " is" : "s are"} active. The longest is ${longest.lineName} at ${minutes} minutes.`;
+}
+
+function statusLabel(status: AndonCall["status"], language: "id" | "en"): string {
+  if (language === "en") return status.replaceAll("_", " ");
+  return { calling: "panggilan baru", acknowledged: "sudah diterima", in_progress: "sedang ditangani", resolved: "selesai" }[status];
+}
+
+export function formatSituationSummary(calls: AndonCall[], activeLine: AndonLine | undefined, language: "id" | "en" = "en", now = Date.now()): string {
+  const active = calls.filter((call) => call.status !== "resolved");
+  if (!active.length) return language === "id" ? "Situasi plant normal. Tidak ada panggilan Andon aktif atau line stop." : "The plant is normal. There are no active Andon calls or line stops.";
+  const stops = active.filter((call) => call.isLineStopped);
+  const selected = activeLine ? active.filter((call) => call.lineId === activeLine.id || call.lineName === activeLine.name) : [];
+  const oldest = [...active].sort((a, b) => a.timestamp - b.timestamp)[0];
+  const oldestMinutes = Math.max(1, Math.floor((now - oldest.timestamp) / 60_000));
+  const focus = selected[0];
+  const focusText = focus
+    ? language === "id"
+      ? ` Pada ${activeLine!.name} ada ${selected.length} insiden aktif. Masalah terbaru ${focus.category.replaceAll("_", " ")} di ${focus.workstation}, status ${statusLabel(focus.status, language)}.`
+      : ` ${activeLine!.name} has ${selected.length} active incident${selected.length === 1 ? "" : "s"}. The latest is ${focus.category.replaceAll("_", " ")} at ${focus.workstation}, status ${statusLabel(focus.status, language)}.`
+    : language === "id" ? ` Tidak ada insiden aktif pada ${activeLine?.name || "line yang dipilih"}.` : ` There is no active incident on ${activeLine?.name || "the selected line"}.`;
+  const priority = language === "id"
+    ? ` Prioritas durasi terlama adalah ${oldest.lineName} di ${oldest.workstation}, ${oldestMinutes} menit, status ${statusLabel(oldest.status, language)}.`
+    : ` The longest-duration priority is ${oldest.lineName} at ${oldest.workstation}, ${oldestMinutes} minutes, status ${statusLabel(oldest.status, language)}.`;
+  return language === "id"
+    ? `Saat ini ada ${active.length} panggilan aktif dan ${stops.length} kondisi line stop.${focusText}${priority}`
+    : `There are ${active.length} active calls and ${stops.length} line stops.${focusText}${priority}`;
 }

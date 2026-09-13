@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { INITIAL_LINES } from "../utils/initialData";
-import { canExecuteVoiceIntent, parseVoiceCommand } from "./voiceCommand";
+import { canExecuteVoiceIntent, formatSituationSummary, parseVoiceCommand } from "./voiceCommand";
 
 describe("parseVoiceCommand", () => {
   it("requires confirmation before creating a critical call", () => {
@@ -45,6 +45,19 @@ describe("parseVoiceCommand", () => {
     const result = parseVoiceCommand("Pilih line SLC-C", INITIAL_LINES, { language: "id" });
     expect(result.intent).toBe("select_line");
     expect(result.lineId).toBe("line-c");
+  });
+
+  it("recognizes a request to read the current situation", () => {
+    expect(parseVoiceCommand("Apa yang terjadi?", INITIAL_LINES, { language: "id", activeLine: INITIAL_LINES[0] }).intent).toBe("situation_summary");
+  });
+
+  it("summarizes plant and selected-line situation from live calls", () => {
+    const now = Date.now();
+    const calls = [{ id: "1", ticketNo: "AV-1", lineId: "line-a", lineName: "Headlamp Assembly A", workstation: "Loading", category: "machine_breakdown" as const, severity: "critical_line_stop" as const, isLineStopped: true, operatorName: "Operator", operatorId: "OP-1", description: "Sensor fault", timestamp: now - 180_000, status: "calling" as const }];
+    const summary = formatSituationSummary(calls, INITIAL_LINES[0], "id", now);
+    expect(summary).toContain("1 panggilan aktif");
+    expect(summary).toContain("Headlamp Assembly A");
+    expect(summary).toContain("3 menit");
   });
 });
 
