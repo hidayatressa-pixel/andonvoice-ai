@@ -11,6 +11,7 @@ import { AdminDashboard } from "./components/AdminDashboard";
 import { LoginScreen } from "./components/LoginScreen";
 import { AdminRolePreviewModal } from "./components/AdminRolePreviewModal";
 import { AlexaVoiceExperience } from "./components/AlexaVoiceExperience";
+import { HackathonDemoCenter } from "./components/HackathonDemoCenter";
 import { ConfigModal } from "./components/ConfigModal";
 import { CallDetailModal } from "./components/CallDetailModal";
 import { ActiveTab, AndonCall, AndonLine, CallStatus, SoundConfig, UserProfile, UserRole, ActivityLog, AppTheme, AppLanguage } from "./types";
@@ -87,5 +88,6 @@ export default function App() {
     {isAdmin&&<ConfigModal isOpen={isConfigOpen} onClose={()=>setIsConfigOpen(false)} soundConfig={soundConfig} setSoundConfig={setSoundConfig} lines={lines} onUpdateLineTarget={handleUpdateLineTarget} theme={theme} setTheme={setTheme} language={language} setLanguage={setLanguage} currentUser={currentUser}/>} 
     {isAdmin&&<AdminRolePreviewModal isOpen={isRolePreviewOpen} onClose={()=>setIsRolePreviewOpen(false)} role={previewRole} onChangeRole={handlePreviewRole} theme={theme} language={language}/>} 
     <AlexaVoiceExperience lines={lines} calls={calls} currentUser={currentUser} onCreateCall={handleCreateCall}/>
+    <HackathonDemoCenter onRunScenario={handleSimulateEmergency}/>
   </div>;
 }
