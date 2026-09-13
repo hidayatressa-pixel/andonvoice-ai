@@ -3,7 +3,7 @@ import path from "path";
 import { createServer as createViteServer } from "vite";
 import dotenv from "dotenv";
 import { mountMcpEndpoint } from "./server/mcpServer";
-import { listIncidents } from "./server/hackathonStore";
+import { createIncident, deleteIncident, listIncidents, updateIncident } from "./server/hackathonStore";
 
 dotenv.config();
 
@@ -63,6 +63,22 @@ async function startServer() {
   });
 
   app.get("/api/hackathon/incidents", (_req, res) => res.json({ incidents: listIncidents() }));
+  app.post("/api/hackathon/incidents", (req, res) => {
+    const { line, lineId, workstation, category, description, lineStopped, createdBy, severity } = req.body || {};
+    if (typeof line !== "string" || typeof description !== "string" || typeof createdBy !== "string" || !["machine", "material", "quality", "safety", "leader"].includes(category)) {
+      return res.status(400).json({ error: "INVALID_INCIDENT" });
+    }
+    const result = createIncident({ line: line.slice(0, 80), lineId, workstation, category, description: description.slice(0, 500), lineStopped: Boolean(lineStopped), createdBy: createdBy.slice(0, 80), severity });
+    if (result.duplicate) return res.status(409).json({ error: "DUPLICATE_ACTIVE_CALL", incident: result.duplicate });
+    return res.status(201).json({ incident: result.incident });
+  });
+  app.patch("/api/hackathon/incidents/:id", (req, res) => {
+    const status = req.body?.status;
+    if (!["calling", "acknowledged", "in_progress", "resolved"].includes(status)) return res.status(400).json({ error: "INVALID_STATUS" });
+    const incident = updateIncident(req.params.id, status);
+    return incident ? res.json({ incident }) : res.status(404).json({ error: "INCIDENT_NOT_FOUND" });
+  });
+  app.delete("/api/hackathon/incidents/:id", (req, res) => deleteIncident(req.params.id) ? res.json({ ok: true }) : res.status(404).json({ error: "INCIDENT_NOT_FOUND" }));
   mountMcpEndpoint(app);
 
   app.post("/api/notifications/telegram", async (req, res) => {

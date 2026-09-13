@@ -12,6 +12,11 @@ export interface McpIncident {
   createdAt: string;
   updatedAt: string;
   createdBy: string;
+  lineId?: string;
+  workstation?: string;
+  severity?: "minor" | "major" | "critical_line_stop";
+  acknowledgedAt?: string;
+  resolvedAt?: string;
 }
 
 const incidents: McpIncident[] = [];
@@ -41,7 +46,16 @@ export function updateIncident(id: string, status: McpIncidentStatus): McpIncide
   if (!incident) return undefined;
   incident.status = status;
   incident.updatedAt = new Date().toISOString();
+  if (status === "acknowledged") incident.acknowledgedAt = incident.updatedAt;
+  if (status === "resolved") incident.resolvedAt = incident.updatedAt;
   return incident;
+}
+
+export function deleteIncident(id: string): boolean {
+  const index = incidents.findIndex((item) => item.id === id || item.ticketNo === id);
+  if (index < 0) return false;
+  incidents.splice(index, 1);
+  return true;
 }
 
 export function resetIncidentsForTests(): void {

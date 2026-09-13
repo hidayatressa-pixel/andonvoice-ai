@@ -20,6 +20,8 @@ import { subscribeAndonCalls, subscribeMasterLines, subscribeActivityLogs, creat
 import { playAndonSound, speakAndonCall } from "./utils/audioAlert";
 import { CATEGORIES_DATA } from "./utils/categories";
 import { canManageMasterData, canManageSettings } from "./utils/permissions";
+import { createUnifiedCall, deleteUnifiedCall, fetchUnifiedCalls, updateUnifiedCall } from "./hackathon/incidentApi";
+import { IS_DEMO_MODE } from "./lib/firestoreService";
 
 const secureRandomIndex = (length: number): number => { if (length <= 1) return 0; const values = new Uint32Array(1); crypto.getRandomValues(values); return values[0] % length; };
 
@@ -45,15 +47,22 @@ export default function App() {
   useEffect(() => { saveLanguageToStorage(language); }, [language]);
   useEffect(() => { saveSoundConfig(soundConfig); }, [soundConfig]);
   useEffect(() => { const unsubCalls=subscribeAndonCalls(setCalls); const unsubLines=subscribeMasterLines((dbLines)=>{ if(dbLines&&dbLines.length>0){setLines(dbLines);if(!selectedLineId||!dbLines.some(l=>l.id===selectedLineId))setSelectedLineId(dbLines[0].id);} else { setLines([]); setSelectedLineId(""); } }); const unsubLogs=subscribeActivityLogs(setActivityLogs); return()=>{unsubCalls();unsubLines();unsubLogs();}; },[]);
+  useEffect(() => {
+    if (!IS_DEMO_MODE) return;
+    let active = true;
+    const sync = async () => { try { const remoteCalls = await fetchUnifiedCalls(); if (active) setCalls(remoteCalls); } catch { /* Static demo falls back to local state. */ } };
+    void sync(); const timer = window.setInterval(sync, 2000);
+    return () => { active = false; window.clearInterval(timer); };
+  }, []);
   useEffect(() => { if (!viewUser) return; if (!isAdminView && (activeTab === "admin_dashboard" || activeTab === "master_data")) setActiveTab(viewUser.role === "operator" ? "operator_call" : "main_board"); }, [previewRole, viewUser?.role]);
   useEffect(() => { if (!isAdmin && isConfigOpen) setIsConfigOpen(false); }, [isAdmin, isConfigOpen]);
 
   const recalculateLineStatuses=useCallback((currentCalls:AndonCall[])=>{setLines(prev=>prev.map(line=>{const lineActiveCalls=currentCalls.filter(c=>c.lineId===line.id&&c.status!=="resolved");const hasStop=lineActiveCalls.some(c=>c.isLineStopped);return{...line,status:hasStop?"critical":lineActiveCalls.length>0?"warning":"running",activeCallsCount:lineActiveCalls.length};}));},[]);
   useEffect(()=>{recalculateLineStatuses(calls);},[calls,recalculateLineStatuses]);
 
-  const handleCreateCall=async(callData:Omit<AndonCall,"id"|"ticketNo"|"timestamp"|"status">)=>{const newCall:AndonCall={...callData,id:`call-${Date.now()}`,ticketNo:generateTicketNo(),timestamp:Date.now(),status:"calling",escalated:false,escalationLevel:1};await createAndonCallInDb(newCall,currentUser?{name:currentUser.name,id:currentUser.badgeId,role:currentUser.role}:undefined);if(soundConfig.soundEnabled)playAndonSound(soundConfig.alarmType,newCall.severity,soundConfig.volume);if(soundConfig.soundEnabled&&soundConfig.voiceAnnouncement){const catLabel=language==="en"?(CATEGORIES_DATA[newCall.category]?.labelEn||newCall.category):(CATEGORIES_DATA[newCall.category]?.label||newCall.category);speakAndonCall(newCall.lineName,catLabel,newCall.workstation,language==="en"?"en-US":soundConfig.voiceLanguage);}};
-  const handleUpdateCallStatus=async(callId:string,status:CallStatus,extra?:Partial<AndonCall>)=>{await updateAndonCallInDb(callId,status,extra,currentUser?{name:currentUser.name,id:currentUser.badgeId,role:currentUser.role}:undefined);if(inspectedCall&&inspectedCall.id===callId)setInspectedCall({...inspectedCall,status,...extra});};
-  const handleCancelCall=async(callId:string)=>{await deleteAndonCallInDb(callId,currentUser?{name:currentUser.name,id:currentUser.badgeId,role:currentUser.role}:undefined);};
+  const handleCreateCall=async(callData:Omit<AndonCall,"id"|"ticketNo"|"timestamp"|"status">)=>{let newCall:AndonCall;try{if(!IS_DEMO_MODE)throw new Error("cloud-provider");newCall=await createUnifiedCall(callData);setCalls(prev=>[newCall,...prev.filter(c=>c.id!==newCall.id)]);}catch{newCall={...callData,id:`call-${Date.now()}`,ticketNo:generateTicketNo(),timestamp:Date.now(),status:"calling",escalated:false,escalationLevel:1};await createAndonCallInDb(newCall,currentUser?{name:currentUser.name,id:currentUser.badgeId,role:currentUser.role}:undefined);}if(soundConfig.soundEnabled)playAndonSound(soundConfig.alarmType,newCall.severity,soundConfig.volume);if(soundConfig.soundEnabled&&soundConfig.voiceAnnouncement){const catLabel=language==="en"?(CATEGORIES_DATA[newCall.category]?.labelEn||newCall.category):(CATEGORIES_DATA[newCall.category]?.label||newCall.category);speakAndonCall(newCall.lineName,catLabel,newCall.workstation,language==="en"?"en-US":soundConfig.voiceLanguage);}};
+  const handleUpdateCallStatus=async(callId:string,status:CallStatus,extra?:Partial<AndonCall>)=>{try{if(!IS_DEMO_MODE)throw new Error("cloud-provider");const updated=await updateUnifiedCall(callId,status);setCalls(prev=>prev.map(c=>c.id===callId?{...c,...updated,...extra}:c));}catch{await updateAndonCallInDb(callId,status,extra,currentUser?{name:currentUser.name,id:currentUser.badgeId,role:currentUser.role}:undefined);}if(inspectedCall&&inspectedCall.id===callId)setInspectedCall({...inspectedCall,status,...extra});};
+  const handleCancelCall=async(callId:string)=>{try{if(!IS_DEMO_MODE)throw new Error("cloud-provider");await deleteUnifiedCall(callId);setCalls(prev=>prev.filter(c=>c.id!==callId));}catch{await deleteAndonCallInDb(callId,currentUser?{name:currentUser.name,id:currentUser.badgeId,role:currentUser.role}:undefined);}};
   const handleUpdateLineTarget=async(lineId:string,targetDaily:number)=>{if(!canManageMasterData(currentUser))throw new Error("PERMISSION_DENIED: administrator privileges required");const targetLine=lines.find(l=>l.id===lineId);if(targetLine)await saveMasterLineInDb({...targetLine,targetDaily},{name:currentUser!.name,id:currentUser!.badgeId,role:currentUser!.role});};
   const handleLogout=()=>{if(currentUser)void logActivity("login",`User Logout: ${currentUser.name}`,"User session logged out.",{name:currentUser.name,id:currentUser.badgeId,role:currentUser.role});clearSession();setCurrentUser(null);setPreviewRole("admin");};
   const handleLoginSuccess=(user:UserProfile)=>{setCurrentUser(user);setPreviewRole(user.role);const storedLineId=localStorage.getItem("andon_active_login_line_id");if(storedLineId)setSelectedLineId(storedLineId);setActiveTab(user.role==="operator"?"operator_call":"main_board");};
