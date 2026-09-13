@@ -4,12 +4,12 @@ import path from 'path';
 import { defineConfig } from 'vite';
 
 export default defineConfig(() => {
-  // GitHub Pages serves this project from /smart-andon-manufacturing-system/.
-  // Other deployments (local, Netlify, Express, buyer-owned hosting) keep '/'.
+  // GitHub Pages serves the simulator from the hackathon repository path.
+  // Full Express deployments keep `/` and additionally expose POST /mcp.
   const isGitHubPages = process.env.GITHUB_PAGES === 'true';
 
   return {
-    base: isGitHubPages ? '/smart-andon-manufacturing-system/' : '/',
+    base: isGitHubPages ? '/andonvoice-ai/' : '/',
     plugins: [react(), tailwindcss()],
     resolve: {
       alias: {

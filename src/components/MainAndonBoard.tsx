@@ -16,7 +16,6 @@ import { AndonCall, AndonLine, AppTheme, AppLanguage } from "../types";
 import { CATEGORIES_DATA, normalizeCategoryToPrimary } from "../utils/categories";
 import { formatDuration, formatTimestamp } from "../utils/storage";
 import { getTranslation, TranslationKey } from "../utils/i18n";
-import { WorkflowGuide } from "./WorkflowGuide";
 
 interface MainAndonBoardProps {
   lines: AndonLine[];
@@ -64,11 +63,6 @@ export const MainAndonBoard: React.FC<MainAndonBoardProps> = ({
 
   return (
     <div className="space-y-6 pb-12">
-      <WorkflowGuide
-        theme={theme}
-        language={language}
-        onOpenOperator={() => onNavigateToCall(lines[0]?.id || "LINE-1")}
-      />
       {/* Top KPI Cards (Andon KPI Header) */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-3 sm:gap-4">
         {/* Plant Status / Running Lines */}
