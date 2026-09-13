@@ -132,17 +132,17 @@ export const AlexaVoiceExperience: React.FC<AlexaVoiceExperienceProps> = ({ line
 
   if (!open) return (
     <button onClick={() => setOpen(true)} className="fixed bottom-6 right-6 z-40 flex items-center gap-3 rounded-2xl bg-gradient-to-r from-cyan-600 to-blue-700 px-4 py-3 text-sm font-black text-white shadow-2xl shadow-cyan-900/30 hover:scale-[1.02] transition-transform">
-      <Sparkles className="h-5 w-5" /> Alexa+ Experience
+      <Sparkles className="h-5 w-5" /> AndonVoice Assistant
     </button>
   );
 
   return (
     <aside className={`fixed bottom-5 right-5 z-50 flex h-[650px] max-h-[86vh] w-[440px] max-w-[calc(100vw-2rem)] flex-col overflow-hidden rounded-3xl border shadow-2xl shadow-black/50 ${theme === "dark" ? "border-cyan-400/30 bg-slate-950 text-white" : "border-cyan-600/25 bg-white text-slate-900"}`}>
       <header className="flex items-center justify-between border-b border-white/10 bg-gradient-to-r from-cyan-950 to-blue-950 px-5 py-4">
-        <div className="flex items-center gap-3"><div className="rounded-xl bg-cyan-400/15 p-2"><Bot className="h-5 w-5 text-cyan-300" /></div><div><p className="font-black">{appName} · Voice</p><p className="text-xs text-cyan-200">{language === "id" ? "Asisten operasional Alexa+" : "Alexa+ operations assistant"}</p></div></div>
+        <div className="flex items-center gap-3"><div className="rounded-xl bg-cyan-400/15 p-2"><Bot className="h-5 w-5 text-cyan-300" /></div><div><p className="font-black">{appName} · Voice</p><p className="text-xs text-cyan-200">{language === "id" ? "Asisten operasional Andon berbasis suara" : "Voice-enabled Andon operations assistant"}</p></div></div>
         <button aria-label="Close voice experience" onClick={() => setOpen(false)} className="rounded-lg p-2 text-slate-300 hover:bg-white/10"><X className="h-5 w-5" /></button>
       </header>
-      <div className="flex items-center gap-2 border-b border-white/10 bg-white/[0.03] px-5 py-3 text-xs text-slate-300"><ShieldCheck className="h-4 w-4 text-emerald-400" /> {language === "id" ? "Konfirmasi manusia melindungi setiap tindakan perubahan data" : "Human confirmation protects every write action"}</div>
+      <div className="flex items-center justify-between gap-2 border-b border-white/10 bg-white/[0.03] px-5 py-3 text-xs text-slate-300"><span className="flex items-center gap-2"><ShieldCheck className="h-4 w-4 text-emerald-400" /> {language === "id" ? "Konfirmasi manusia melindungi setiap tindakan perubahan data" : "Human confirmation protects every write action"}</span><span className="shrink-0 rounded-full border border-cyan-400/20 bg-cyan-400/10 px-2 py-1 text-[9px] font-bold text-cyan-200">Alexa+ simulated</span></div>
       <div className={`grid grid-cols-3 gap-2 border-b px-4 py-3 text-[11px] ${theme === "dark" ? "border-white/10 bg-white/[.02] text-slate-300" : "border-slate-200 bg-slate-50 text-slate-600"}`}>
         <label className="col-span-3 font-bold"><span className="mr-2">{language === "id" ? "Line aktif" : "Active line"}</span><select value={activeLine?.id || ""} onChange={(event) => onLineChange(event.target.value)} className={`rounded-lg border px-2 py-1 ${theme === "dark" ? "border-white/10 bg-slate-900" : "border-slate-300 bg-white"}`}>{lines.map(line => <option key={line.id} value={line.id}>{line.shortCode}</option>)}</select></label>
         <span><b>{language === "id" ? "Shift" : "Shift"}</b><br/>{activeLine?.currentShift || "-"}</span>
@@ -156,7 +156,7 @@ export const AlexaVoiceExperience: React.FC<AlexaVoiceExperienceProps> = ({ line
       <div className="border-t border-white/10 p-4">
         <div className="mb-3 flex gap-2 overflow-x-auto pb-1">{examples.map((example) => <button key={example} onClick={() => respond(example)} className={`whitespace-nowrap rounded-full border px-3 py-1.5 text-[11px] hover:border-cyan-400/50 ${theme === "dark" ? "border-white/10 bg-white/5 text-slate-300" : "border-slate-200 bg-slate-50 text-slate-600"}`}>{example}</button>)}</div>
         {listening && <p className="mb-2 animate-pulse text-xs font-bold text-red-300">● {language === "id" ? "Mendengarkan… silakan bicara" : "Listening… speak now"}</p>}
-        <div className="flex gap-2"><button title={supported ? "Speak" : "Speech recognition requires Chrome or Edge"} onClick={listening ? () => recognitionRef.current?.stop() : startListening} className={`rounded-xl p-3 ${listening ? "bg-red-500 ring-4 ring-red-500/20" : "bg-white/10"}`}><Mic className="h-5 w-5" /></button><input value={input} onChange={(event) => setInput(event.target.value)} onKeyDown={(event) => { if (event.key === "Enter" && input.trim()) respond(input); }} placeholder={language === "id" ? "Katakan atau ketik perintah Andon…" : "Ask Alexa+ about the shop floor..."} className="min-w-0 flex-1 rounded-xl border border-white/10 bg-white/5 px-4 text-sm outline-none focus:border-cyan-400" /><button onClick={() => input.trim() && respond(input)} className="rounded-xl bg-cyan-500 p-3 text-slate-950"><Send className="h-5 w-5" /></button></div>
+        <div className="flex gap-2"><button title={supported ? "Speak" : "Speech recognition requires Chrome or Edge"} onClick={listening ? () => recognitionRef.current?.stop() : startListening} className={`rounded-xl p-3 ${listening ? "bg-red-500 ring-4 ring-red-500/20" : "bg-white/10"}`}><Mic className="h-5 w-5" /></button><input value={input} onChange={(event) => setInput(event.target.value)} onKeyDown={(event) => { if (event.key === "Enter" && input.trim()) respond(input); }} placeholder={language === "id" ? "Katakan atau ketik perintah Andon…" : "Ask about the shop floor..."} className="min-w-0 flex-1 rounded-xl border border-white/10 bg-white/5 px-4 text-sm outline-none focus:border-cyan-400" /><button onClick={() => input.trim() && respond(input)} className="rounded-xl bg-cyan-500 p-3 text-slate-950"><Send className="h-5 w-5" /></button></div>
       </div>
     </aside>
   );
