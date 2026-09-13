@@ -1,0 +1,43 @@
+name: Apply workflow guide
+on:
+  workflow_dispatch:
+  push:
+    paths:
+      - 'src/components/WorkflowGuide.tsx'
+permissions:
+  contents: write
+jobs:
+  apply:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+      - name: Integrate guide
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          p = Path('src/components/MainAndonBoard.tsx')
+          s = p.read_text()
+          marker = 'import { getTranslation, TranslationKey } from "../utils/i18n";'
+          imp = 'import { WorkflowGuide } from "./WorkflowGuide";'
+          if imp not in s:
+              s = s.replace(marker, marker + '\n' + imp)
+          jsx_marker = '<div className="space-y-6 pb-12">'
+          guide = '''<div className="space-y-6 pb-12">\n      <WorkflowGuide\n        theme={theme}\n        language={language}\n        onOpenOperator={() => onNavigateToCall(lines[0]?.id || "LINE-1")}\n      />'''
+          if '<WorkflowGuide' not in s:
+              s = s.replace(jsx_marker, guide, 1)
+          p.write_text(s)
+          PY
+      - run: npm ci
+      - run: npm run build
+      - name: Commit
+        run: |
+          git config user.name github-actions[bot]
+          git config user.email 41898282+github-actions[bot]@users.noreply.github.com
+          git add src/components/MainAndonBoard.tsx
+          git diff --cached --quiet || git commit -m "feat: show existing Andon workflow guide"
+          git push

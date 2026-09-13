@@ -1,0 +1,6 @@
+{
+  "name": "AndonVoice AI",
+  "description": "Alexa+ and MCP-powered manufacturing incident response with confirmation, role controls, duplicate prevention, and downtime insights.",
+  "requestFramePermissions": ["microphone"],
+  "majorCapabilities": ["MCP_STREAMABLE_HTTP", "VOICE_EXPERIENCE", "HUMAN_IN_THE_LOOP"]
+}

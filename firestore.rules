@@ -1,0 +1,91 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+
+    function hasProfile() {
+      return isAuthenticated() && exists(/databases/$(database)/documents/master_operators/$(request.auth.uid));
+    }
+
+    function getUserRole() {
+      return hasProfile()
+        ? get(/databases/$(database)/documents/master_operators/$(request.auth.uid)).data.role
+        : null;
+    }
+
+    function isAdmin() {
+      return hasProfile() && getUserRole() == 'admin';
+    }
+
+    function isManager() {
+      return hasProfile() && (getUserRole() == 'manager' || getUserRole() == 'admin');
+    }
+
+    function isSupervisor() {
+      return hasProfile() && (getUserRole() == 'supervisor' || getUserRole() == 'manager' || getUserRole() == 'admin');
+    }
+
+    function isLeader() {
+      return hasProfile() && (getUserRole() == 'leader' || getUserRole() == 'supervisor' || getUserRole() == 'manager' || getUserRole() == 'admin');
+    }
+
+    function isPlantUser() {
+      return hasProfile() && (getUserRole() in ['operator', 'leader', 'supervisor', 'manager', 'admin']);
+    }
+
+    match /andon_calls/{callId} {
+      allow read: if hasProfile();
+      allow create: if isPlantUser();
+      allow update: if isPlantUser() && (
+        isSupervisor() || (
+          request.resource.data.operatorId == resource.data.operatorId &&
+          request.resource.data.timestamp == resource.data.timestamp
+        )
+      );
+      allow delete: if isSupervisor();
+    }
+
+    match /master_lines/{lineId} {
+      allow read: if hasProfile();
+      allow write: if isAdmin();
+    }
+
+    match /master_machines/{machineId} {
+      allow read: if hasProfile();
+      allow write: if isAdmin();
+    }
+
+    match /master_operators/{operatorId} {
+      allow read: if hasProfile();
+      allow create: if isAuthenticated() && (
+        isAdmin() || (
+          request.auth.uid == operatorId && request.resource.data.role == 'operator'
+        )
+      );
+      allow update: if isAuthenticated() && (
+        isAdmin() || (
+          request.auth.uid == operatorId &&
+          request.resource.data.role == resource.data.role &&
+          request.resource.data.badgeId == resource.data.badgeId &&
+          request.resource.data.email == resource.data.email &&
+          (!('lineAccess' in resource.data) || request.resource.data.lineAccess == resource.data.lineAccess) &&
+          (!('department' in resource.data) || request.resource.data.department == resource.data.department)
+        )
+      );
+      allow delete: if isAdmin();
+    }
+
+    match /activity_logs/{logId} {
+      allow read: if isSupervisor();
+      allow create: if hasProfile();
+      allow update, delete: if isAdmin();
+    }
+
+    match /system_config/{configId} {
+      allow read: if hasProfile();
+      allow write: if isAdmin();
+    }
+  }
+}
