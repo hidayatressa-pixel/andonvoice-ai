@@ -6,6 +6,7 @@ import { mountMcpEndpoint } from "./server/mcpServer";
 import { createIncident, deleteIncident, listIncidents, updateIncident } from "./server/hackathonStore";
 import { analyzeIncident } from "./server/incidentIntelligence";
 import { apiAuthentication, apiRateLimit, securityHeaders } from "./server/security";
+import { observeRequest, telemetrySnapshot } from "./server/telemetry";
 
 dotenv.config();
 
@@ -60,11 +61,14 @@ async function startServer() {
   app.disable("x-powered-by");
   app.set("trust proxy", 1);
   app.use(securityHeaders);
+  app.use(observeRequest);
   app.use(express.json({ limit: "32kb" }));
 
   app.get("/api/health", (_req, res) => {
-    res.json({ status: "ok", product: "AndonVoice AI", mcpProtocol: "2025-11-25", timestamp: new Date().toISOString() });
+    res.json({ status: "ok", version: "0.6.0", product: "AndonVoice AI", mcpProtocol: "2025-11-25", timestamp: new Date().toISOString() });
   });
+  app.get("/api/ready", (_req, res) => res.json({ ready: true, bedrock: process.env.BEDROCK_ENABLED === "true", persistence: Boolean(process.env.INCIDENT_STORE_FILE) }));
+  app.get("/api/metrics", apiAuthentication, (_req, res) => res.json(telemetrySnapshot()));
 
   app.use("/api/hackathon", apiRateLimit);
   app.get("/api/hackathon/incidents", (_req, res) => res.json({ incidents: listIncidents() }));
@@ -139,7 +143,7 @@ async function startServer() {
   } else {
     const distPath = path.join(process.cwd(), "dist");
     app.use(express.static(distPath));
-    app.get("*", (_req, res) => res.sendFile(path.join(distPath, "index.html")));
+    app.use((_req, res) => res.sendFile(path.join(distPath, "index.html")));
   }
 
   app.listen(PORT, "0.0.0.0", () => {

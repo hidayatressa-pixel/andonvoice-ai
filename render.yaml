@@ -1,0 +1,19 @@
+services:
+  - type: web
+    name: andonvoice-ai
+    runtime: docker
+    plan: free
+    dockerfilePath: ./Dockerfile
+    healthCheckPath: /api/health
+    autoDeployTrigger: commit
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: VITE_DATA_PROVIDER
+        value: demo
+      - key: API_AUTH_MODE
+        value: optional
+      - key: API_RATE_LIMIT
+        value: "120"
+      - key: BEDROCK_ENABLED
+        value: "false"
