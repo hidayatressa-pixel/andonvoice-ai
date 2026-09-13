@@ -1,7 +1,7 @@
 {
   "name": "andonvoice-ai",
   "private": false,
-  "version": "0.2.0",
+  "version": "0.3.0",
   "description": "Alexa+ and MCP-powered manufacturing incident response system.",
   "type": "module",
   "scripts": {
@@ -14,6 +14,7 @@
     "test": "vitest run"
   },
   "dependencies": {
+    "@aws-sdk/client-bedrock-runtime": "^3.1131.0",
     "@google/genai": "^2.4.0",
     "@modelcontextprotocol/sdk": "^1.30.0",
     "@tailwindcss/vite": "^4.1.14",

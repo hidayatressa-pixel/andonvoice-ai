@@ -3,11 +3,12 @@ import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { StreamableHTTPServerTransport } from "@modelcontextprotocol/sdk/server/streamableHttp.js";
 import * as z from "zod/v4";
 import { createIncident, listIncidents, updateIncident, type McpIncidentStatus } from "./hackathonStore";
+import { analyzeIncident } from "./incidentIntelligence";
 
 const textResult = (value: unknown) => ({ content: [{ type: "text" as const, text: JSON.stringify(value, null, 2) }] });
 
 export function createAndonMcpServer(): McpServer {
-  const server = new McpServer({ name: "andonvoice-ai", version: "0.1.0" });
+  const server = new McpServer({ name: "andonvoice-ai", version: "0.3.0" });
 
   server.registerTool("create_andon_call", {
     title: "Create Andon call",
@@ -61,6 +62,12 @@ export function createAndonMcpServer(): McpServer {
     const incident = updateIncident(incidentId, status as McpIncidentStatus);
     return incident ? textResult({ ok: true, incident }) : { isError: true, ...textResult({ error: "INCIDENT_NOT_FOUND" }) };
   });
+
+  server.registerTool("analyze_incident_4m1e", {
+    title: "Analyze incident with 4M1E",
+    description: "Returns decision support, containment prompts, and evidence-based 4M1E hypotheses. It never changes incident state.",
+    inputSchema: { description: z.string().min(5).max(2000) }
+  }, async ({ description }) => textResult(await analyzeIncident(description)));
 
   return server;
 }

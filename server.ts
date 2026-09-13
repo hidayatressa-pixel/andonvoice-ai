@@ -4,6 +4,7 @@ import { createServer as createViteServer } from "vite";
 import dotenv from "dotenv";
 import { mountMcpEndpoint } from "./server/mcpServer";
 import { createIncident, deleteIncident, listIncidents, updateIncident } from "./server/hackathonStore";
+import { analyzeIncident } from "./server/incidentIntelligence";
 
 dotenv.config();
 
@@ -79,6 +80,11 @@ async function startServer() {
     return incident ? res.json({ incident }) : res.status(404).json({ error: "INCIDENT_NOT_FOUND" });
   });
   app.delete("/api/hackathon/incidents/:id", (req, res) => deleteIncident(req.params.id) ? res.json({ ok: true }) : res.status(404).json({ error: "INCIDENT_NOT_FOUND" }));
+  app.post("/api/hackathon/analyze", async (req, res) => {
+    const description = typeof req.body?.description === "string" ? req.body.description.trim() : "";
+    if (description.length < 5 || description.length > 2000) return res.status(400).json({ error: "INVALID_DESCRIPTION" });
+    return res.json({ analysis: await analyzeIncident(description) });
+  });
   mountMcpEndpoint(app);
 
   app.post("/api/notifications/telegram", async (req, res) => {
