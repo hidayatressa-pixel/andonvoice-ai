@@ -1,7 +1,7 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import { Bot, Check, Mic, Send, ShieldCheck, Sparkles, X } from "lucide-react";
 import type { AndonCall, AndonLine, AppLanguage, AppTheme, BrandConfig, UserProfile } from "../types";
-import { canExecuteVoiceIntent, formatActiveCalls, formatDowntimeSummary, formatSituationSummary, formatStoppedLines, parseVoiceCommand, type ParsedVoiceCommand, type VoiceIntent } from "../hackathon/voiceCommand";
+import { canExecuteVoiceIntent, formatActiveCalls, formatDowntimeSummary, formatIncidentDetail, formatSituationSummary, formatStoppedLines, parseVoiceCommand, type ParsedVoiceCommand, type VoiceIntent } from "../hackathon/voiceCommand";
 
 interface AlexaVoiceExperienceProps {
   lines: AndonLine[];
@@ -12,6 +12,7 @@ interface AlexaVoiceExperienceProps {
   theme: AppTheme;
   branding: BrandConfig;
   selectedLineId: string;
+  focusedIncident?: AndonCall | null;
   onLineChange: (lineId: string) => void;
   onCreateCall: (call: Omit<AndonCall, "id" | "ticketNo" | "timestamp" | "status">) => Promise<void>;
 }
@@ -35,7 +36,7 @@ type SpeechRecognitionInstance = {
   start: () => void; stop: () => void; abort: () => void;
 };
 
-export const AlexaVoiceExperience: React.FC<AlexaVoiceExperienceProps> = ({ lines, calls, currentUser, language, onLanguageChange, theme, branding, selectedLineId, onLineChange, onCreateCall }) => {
+export const AlexaVoiceExperience: React.FC<AlexaVoiceExperienceProps> = ({ lines, calls, currentUser, language, onLanguageChange, theme, branding, selectedLineId, focusedIncident, onLineChange, onCreateCall }) => {
   const [open, setOpen] = useState(false);
   const [input, setInput] = useState("");
   const [pending, setPending] = useState<ParsedVoiceCommand | null>(null);
@@ -53,7 +54,7 @@ export const AlexaVoiceExperience: React.FC<AlexaVoiceExperienceProps> = ({ line
   useEffect(() => () => { recognitionRef.current?.abort(); recognitionRef.current = null; }, []);
 
   const respond = (transcript: string) => {
-    const parsed = parseVoiceCommand(transcript, lines, { language, activeLine, workstation: activeLine?.workstations[0], lastIntent: lastIntentRef.current });
+    const parsed = parseVoiceCommand(transcript, lines, { language, activeLine, workstation: activeLine?.workstations[0], lastIntent: lastIntentRef.current, focusedIncident });
     let response = parsed.response;
     if (!canExecuteVoiceIntent(currentUser.role, parsed.intent)) response = language === "id" ? "Role pengguna saat ini tidak memiliki wewenang untuk tindakan tersebut." : "Your current role is not authorized for that action.";
     else if (parsed.intent === "set_language" && parsed.targetLanguage) onLanguageChange(parsed.targetLanguage);
@@ -62,6 +63,7 @@ export const AlexaVoiceExperience: React.FC<AlexaVoiceExperienceProps> = ({ line
     else if (parsed.intent === "list_stopped_lines") response = formatStoppedLines(calls, language);
     else if (parsed.intent === "downtime_summary") response = formatDowntimeSummary(calls, Date.now(), language);
     else if (parsed.intent === "situation_summary") response = formatSituationSummary(calls, activeLine, language);
+    else if (parsed.intent === "incident_detail") response = formatIncidentDetail(focusedIncident, parsed.incidentField, language);
     setMessages((prev) => [...prev, { role: "user", text: transcript }, { role: "assistant", text: response }]);
     lastIntentRef.current = parsed.intent;
     setPending(parsed.requiresConfirmation ? parsed : null);

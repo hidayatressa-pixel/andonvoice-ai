@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { INITIAL_LINES } from "../utils/initialData";
-import { canExecuteVoiceIntent, formatSituationSummary, formatStoppedLines, parseVoiceCommand } from "./voiceCommand";
+import { canExecuteVoiceIntent, formatIncidentDetail, formatSituationSummary, formatStoppedLines, parseVoiceCommand } from "./voiceCommand";
 
 describe("parseVoiceCommand", () => {
   it("requires confirmation before creating a critical call", () => {
@@ -77,6 +77,14 @@ describe("parseVoiceCommand", () => {
     const base = { ticketNo: "AV", workstation: "Loading", category: "machine_breakdown" as const, severity: "critical_line_stop" as const, isLineStopped: true, operatorName: "OP", operatorId: "OP", description: "Fault", timestamp: now - 60_000, status: "calling" as const };
     const text = formatStoppedLines([{ ...base, id: "1", lineId: "line-a", lineName: "Line A" }, { ...base, id: "2", lineId: "line-a", lineName: "Line A" }, { ...base, id: "3", lineId: "line-b", lineName: "Line B" }], "id", now);
     expect(text).toContain("2 line sedang stop");
+  });
+
+  it("understands detail and cause questions for the incident open on screen", () => {
+    const focusedIncident = { id: "1", ticketNo: "AND-1", lineId: "line-a", lineName: "Headlamp Assembly A", workstation: "Loading", category: "machine_breakdown" as const, severity: "critical_line_stop" as const, isLineStopped: true, operatorName: "OP", operatorId: "OP-1", description: "Optical sensor detects clamping deviation", timestamp: Date.now(), status: "calling" as const };
+    expect(parseVoiceCommand("Penyebabnya apa?", INITIAL_LINES, { language: "id", focusedIncident }).incidentField).toBe("cause");
+    expect(parseVoiceCommand("Detail deskripsinya apa?", INITIAL_LINES, { language: "id", focusedIncident }).incidentField).toBe("description");
+    expect(formatIncidentDetail(focusedIncident, "description", "id")).toContain("Optical sensor");
+    expect(formatIncidentDetail(focusedIncident, "cause", "id")).toContain("belum dikonfirmasi");
   });
 });
 

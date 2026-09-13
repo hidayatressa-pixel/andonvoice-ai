@@ -91,7 +91,7 @@ export default function App() {
     <CallDetailModal call={inspectedCall} onClose={()=>setInspectedCall(null)} onUpdateStatus={handleUpdateCallStatus} theme={theme} language={language}/>
     {isAdmin&&<ConfigModal isOpen={isConfigOpen} onClose={()=>setIsConfigOpen(false)} soundConfig={soundConfig} setSoundConfig={setSoundConfig} lines={lines} onUpdateLineTarget={handleUpdateLineTarget} theme={theme} setTheme={setTheme} language={language} setLanguage={setLanguage} currentUser={currentUser}/>} 
     {isAdmin&&<AdminRolePreviewModal isOpen={isRolePreviewOpen} onClose={()=>setIsRolePreviewOpen(false)} role={previewRole} onChangeRole={handlePreviewRole} theme={theme} language={language}/>} 
-    <AlexaVoiceExperience lines={lines} calls={calls} currentUser={currentUser} language={language} onLanguageChange={setLanguage} theme={theme} branding={branding} selectedLineId={selectedLineId} onLineChange={setSelectedLineId} onCreateCall={handleCreateCall}/>
+    <AlexaVoiceExperience lines={lines} calls={calls} currentUser={currentUser} language={language} onLanguageChange={setLanguage} theme={theme} branding={branding} selectedLineId={selectedLineId} focusedIncident={inspectedCall} onLineChange={setSelectedLineId} onCreateCall={handleCreateCall}/>
     <HackathonDemoCenter onRunScenario={handleSimulateEmergency}/>
   </div>;
 }

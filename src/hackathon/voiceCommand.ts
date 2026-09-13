@@ -1,6 +1,6 @@
 import type { AndonCall, AndonLine, CallCategory, CallSeverity, UserRole } from "../types";
 
-export type VoiceIntent = "create_call" | "list_active" | "list_stopped_lines" | "downtime_summary" | "situation_summary" | "help" | "set_language" | "select_line" | "unknown";
+export type VoiceIntent = "create_call" | "list_active" | "list_stopped_lines" | "downtime_summary" | "situation_summary" | "incident_detail" | "help" | "set_language" | "select_line" | "unknown";
 
 export interface ParsedVoiceCommand {
   intent: VoiceIntent;
@@ -15,9 +15,10 @@ export interface ParsedVoiceCommand {
   confidence: number;
   response: string;
   targetLanguage?: "id" | "en";
+  incidentField?: "description" | "cause" | "status" | "full";
 }
 
-export interface VoiceContext { language?: "id" | "en"; activeLine?: AndonLine; workstation?: string; lastIntent?: VoiceIntent; }
+export interface VoiceContext { language?: "id" | "en"; activeLine?: AndonLine; workstation?: string; lastIntent?: VoiceIntent; focusedIncident?: AndonCall | null; }
 
 const CATEGORY_PATTERNS: Array<{ pattern: RegExp; category: CallCategory; label: string }> = [
   { pattern: /\b(machine|mesin|breakdown|sensor|robot)\b/i, category: "machine_breakdown", label: "machine breakdown" },
@@ -58,6 +59,15 @@ export function parseVoiceCommand(transcript: string, lines: AndonLine[], contex
   if (/help|what can|commands|bantuan|apa.*(bisa|dapat).*(lakukan|kerjakan)|bisa apa|fitur apa/i.test(clean)) {
     const indonesian = /bantuan|apa|bisa|dapat|lakukan|kerjakan|fitur/i.test(clean);
     return { intent: "help", transcript: clean, requiresConfirmation: false, confidence: 1, response: indonesian || isId ? "Saya bisa membuat panggilan Andon dengan konfirmasi, memilih line aktif, menampilkan panggilan aktif, merangkum downtime, dan membantu analisis masalah 4M1E." : "I can create a confirmed Andon call, select the active line, list active incidents, summarize downtime, and support 4M1E problem analysis." };
+  }
+  if (/(penyebab|akar masalah|root cause|what caused|cause of|kenapa ini)/i.test(clean)) {
+    return { intent: "incident_detail", incidentField: "cause", transcript: clean, requiresConfirmation: false, confidence: context.focusedIncident ? 0.99 : 0.65, response: isId ? "Saya akan membaca penyebab insiden yang sedang dipilih." : "I will read the cause of the selected incident." };
+  }
+  if (/(detail|deskripsi|description|jelaskan).*(apa|insiden|masalah|panggilan)?|(?:apa|what).*(detail|deskripsi|description)/i.test(clean)) {
+    return { intent: "incident_detail", incidentField: "description", transcript: clean, requiresConfirmation: false, confidence: context.focusedIncident ? 0.99 : 0.65, response: isId ? "Saya akan membaca deskripsi insiden yang sedang dipilih." : "I will read the selected incident description." };
+  }
+  if (/(statusnya|status insiden|incident status|what.*status)/i.test(clean)) {
+    return { intent: "incident_detail", incidentField: "status", transcript: clean, requiresConfirmation: false, confidence: context.focusedIncident ? 0.99 : 0.65, response: isId ? "Saya akan membaca status insiden yang sedang dipilih." : "I will read the selected incident status." };
   }
   if (/downtime|longest stop|loss time/i.test(clean)) {
     return { intent: "downtime_summary", transcript: clean, requiresConfirmation: false, confidence: 0.96, response: isId ? "Saya akan merangkum downtime saat ini." : "I will summarize current downtime." };
@@ -108,6 +118,28 @@ export function formatActiveCalls(calls: AndonCall[], language: "id" | "en" = "e
   if (!active.length) return language === "id" ? "Tidak ada panggilan Andon yang belum selesai." : "There are no unresolved Andon calls.";
   const list = active.slice(0, 3).map((call) => `${call.lineName}, ${call.category.replaceAll("_", " ")}`).join("; ");
   return language === "id" ? `${active.length} panggilan belum selesai: ${list}.` : `${active.length} unresolved call${active.length === 1 ? "" : "s"}: ${list}.`;
+}
+
+export function formatIncidentDetail(call: AndonCall | undefined | null, field: ParsedVoiceCommand["incidentField"] = "full", language: "id" | "en" = "en"): string {
+  if (!call) return language === "id"
+    ? "Belum ada insiden yang dipilih. Buka detail panggilan atau sebutkan nama line terlebih dahulu."
+    : "No incident is selected. Open a call detail or name a production line first.";
+  const status = statusLabel(call.status, language);
+  if (field === "description") return language === "id"
+    ? `Deskripsi insiden ${call.ticketNo} pada ${call.lineName}: ${call.description}`
+    : `Incident ${call.ticketNo} on ${call.lineName}: ${call.description}`;
+  if (field === "cause") {
+    if (call.rootCause) return language === "id" ? `Akar masalah yang tercatat: ${call.rootCause}` : `Recorded root cause: ${call.rootCause}`;
+    return language === "id"
+      ? `Penyebab insiden ${call.ticketNo} belum dikonfirmasi. Fakta yang tercatat saat ini: ${call.description}`
+      : `The cause of incident ${call.ticketNo} has not been confirmed. The currently recorded fact is: ${call.description}`;
+  }
+  if (field === "status") return language === "id"
+    ? `Status insiden ${call.ticketNo} pada ${call.lineName} adalah ${status}.`
+    : `Incident ${call.ticketNo} on ${call.lineName} is ${status}.`;
+  return language === "id"
+    ? `${call.ticketNo}, ${call.lineName}, ${call.workstation}. ${call.description}. Status ${status}.`
+    : `${call.ticketNo}, ${call.lineName}, ${call.workstation}. ${call.description}. Status: ${status}.`;
 }
 
 export function formatDowntimeSummary(calls: AndonCall[], now = Date.now(), language: "id" | "en" = "en"): string {
