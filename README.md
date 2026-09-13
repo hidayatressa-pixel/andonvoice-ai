@@ -2,6 +2,8 @@
 
 > Alexa+ and MCP-powered manufacturing incident response with human confirmation, role controls, and traceable Andon workflows.
 
+**Live static judge demo:** https://hidayatressa-pixel.github.io/andonvoice-ai/
+
 AndonVoice AI is the open-source hackathon edition of a real shop-floor Andon system. It turns natural-language operator requests into safe, structured actions while keeping people responsible for every operational write.
 
 ## Why it matters
