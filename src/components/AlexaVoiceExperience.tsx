@@ -1,7 +1,7 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import { Bot, Check, Mic, Send, ShieldCheck, Sparkles, X } from "lucide-react";
 import type { AndonCall, AndonLine, AppLanguage, AppTheme, BrandConfig, UserProfile } from "../types";
-import { canExecuteVoiceIntent, formatActiveCalls, formatDowntimeSummary, formatIncidentDetail, formatSituationSummary, formatStoppedLines, parseVoiceCommand, type ParsedVoiceCommand, type VoiceIntent } from "../hackathon/voiceCommand";
+import { canExecuteVoiceIntent, formatActiveCalls, formatDowntimeSummary, formatIncidentDetail, formatLineInventory, formatSituationSummary, formatStoppedLines, parseVoiceCommand, type ParsedVoiceCommand, type VoiceIntent } from "../hackathon/voiceCommand";
 
 interface AlexaVoiceExperienceProps {
   lines: AndonLine[];
@@ -61,6 +61,7 @@ export const AlexaVoiceExperience: React.FC<AlexaVoiceExperienceProps> = ({ line
     else if (parsed.intent === "select_line" && parsed.lineId) onLineChange(parsed.lineId);
     else if (parsed.intent === "list_active") response = formatActiveCalls(calls, language);
     else if (parsed.intent === "list_stopped_lines") response = formatStoppedLines(calls, language);
+    else if (parsed.intent === "line_inventory") response = formatLineInventory(lines, parsed.department, language);
     else if (parsed.intent === "downtime_summary") response = formatDowntimeSummary(calls, Date.now(), language);
     else if (parsed.intent === "situation_summary") response = formatSituationSummary(calls, activeLine, language);
     else if (parsed.intent === "incident_detail") response = formatIncidentDetail(focusedIncident, parsed.incidentField, language);

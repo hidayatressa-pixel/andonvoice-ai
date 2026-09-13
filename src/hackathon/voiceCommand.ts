@@ -1,6 +1,6 @@
 import type { AndonCall, AndonLine, CallCategory, CallSeverity, UserRole } from "../types";
 
-export type VoiceIntent = "create_call" | "list_active" | "list_stopped_lines" | "downtime_summary" | "situation_summary" | "incident_detail" | "help" | "set_language" | "select_line" | "unknown";
+export type VoiceIntent = "create_call" | "list_active" | "list_stopped_lines" | "line_inventory" | "downtime_summary" | "situation_summary" | "incident_detail" | "help" | "set_language" | "select_line" | "unknown";
 
 export interface ParsedVoiceCommand {
   intent: VoiceIntent;
@@ -16,6 +16,7 @@ export interface ParsedVoiceCommand {
   response: string;
   targetLanguage?: "id" | "en";
   incidentField?: "description" | "cause" | "status" | "full";
+  department?: string;
 }
 
 export interface VoiceContext { language?: "id" | "en"; activeLine?: AndonLine; workstation?: string; lastIntent?: VoiceIntent; focusedIncident?: AndonCall | null; }
@@ -40,6 +41,12 @@ function findLine(transcript: string, lines: AndonLine[]): AndonLine | undefined
   }) || lines.find((line, index) => new RegExp(`\\bline\\s*${index + 1}\\b`, "i").test(transcript));
 }
 
+function findDepartment(transcript: string, lines: AndonLine[]): string | undefined {
+  const normalized = normalize(transcript);
+  return [...new Set(lines.map((line) => line.department).filter(Boolean))]
+    .find((department) => normalized.includes(normalize(department)));
+}
+
 export function parseVoiceCommand(transcript: string, lines: AndonLine[], context: VoiceContext = {}): ParsedVoiceCommand {
   const clean = transcript.trim();
   const isId = context.language === "id" || /\b(gunakan|bahasa|lapor|panggil|mesin|material|bantuan|tampilkan|mana|terlama)\b/i.test(clean);
@@ -59,6 +66,19 @@ export function parseVoiceCommand(transcript: string, lines: AndonLine[], contex
   if (/help|what can|commands|bantuan|apa.*(bisa|dapat).*(lakukan|kerjakan)|bisa apa|fitur apa/i.test(clean)) {
     const indonesian = /bantuan|apa|bisa|dapat|lakukan|kerjakan|fitur/i.test(clean);
     return { intent: "help", transcript: clean, requiresConfirmation: false, confidence: 1, response: indonesian || isId ? "Saya bisa membuat panggilan Andon dengan konfirmasi, memilih line aktif, menampilkan panggilan aktif, merangkum downtime, dan membantu analisis masalah 4M1E." : "I can create a confirmed Andon call, select the active line, list active incidents, summarize downtime, and support 4M1E problem analysis." };
+  }
+  if (/(?:ada\s+berapa|berapa|jumlah|how many).*(?:line|lini).*(?:depart(?:e)?men|department)|(?:line|lini).*(?:apa saja|which|what).*(?:depart(?:e)?men|department)/i.test(clean)) {
+    const department = findDepartment(clean, lines);
+    return {
+      intent: "line_inventory",
+      transcript: clean,
+      department,
+      requiresConfirmation: false,
+      confidence: department ? 0.99 : 0.7,
+      response: department
+        ? (isId ? `Saya akan membaca daftar line di departemen ${department}.` : `I will read the lines in the ${department} department.`)
+        : (isId ? "Sebutkan nama departemen yang tersedia di master data." : "Name a department available in master data.")
+    };
   }
   if (/(penyebab|akar masalah|root cause|what caused|cause of|kenapa ini)/i.test(clean)) {
     return { intent: "incident_detail", incidentField: "cause", transcript: clean, requiresConfirmation: false, confidence: context.focusedIncident ? 0.99 : 0.65, response: isId ? "Saya akan membaca penyebab insiden yang sedang dipilih." : "I will read the cause of the selected incident." };
@@ -118,6 +138,24 @@ export function formatActiveCalls(calls: AndonCall[], language: "id" | "en" = "e
   if (!active.length) return language === "id" ? "Tidak ada panggilan Andon yang belum selesai." : "There are no unresolved Andon calls.";
   const list = active.slice(0, 3).map((call) => `${call.lineName}, ${call.category.replaceAll("_", " ")}`).join("; ");
   return language === "id" ? `${active.length} panggilan belum selesai: ${list}.` : `${active.length} unresolved call${active.length === 1 ? "" : "s"}: ${list}.`;
+}
+
+export function formatLineInventory(lines: AndonLine[], department: string | undefined, language: "id" | "en" = "en"): string {
+  if (!department) {
+    const departments = [...new Set(lines.map((line) => line.department).filter(Boolean))];
+    if (!departments.length) return language === "id" ? "Master data line belum tersedia." : "Line master data is not available.";
+    return language === "id"
+      ? `Departemen yang tersedia: ${departments.join(", ")}.`
+      : `Available departments: ${departments.join(", ")}.`;
+  }
+  const matches = lines.filter((line) => normalize(line.department) === normalize(department));
+  if (!matches.length) return language === "id"
+    ? `Tidak ada line yang tercatat pada departemen ${department}.`
+    : `No lines are recorded in the ${department} department.`;
+  const names = matches.map((line) => `${line.name} (${line.shortCode})`).join(", ");
+  return language === "id"
+    ? `Departemen ${department} memiliki ${matches.length} line: ${names}.`
+    : `The ${department} department has ${matches.length} line${matches.length === 1 ? "" : "s"}: ${names}.`;
 }
 
 export function formatIncidentDetail(call: AndonCall | undefined | null, field: ParsedVoiceCommand["incidentField"] = "full", language: "id" | "en" = "en"): string {

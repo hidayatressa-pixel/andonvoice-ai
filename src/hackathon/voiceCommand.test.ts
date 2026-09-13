@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { INITIAL_LINES } from "../utils/initialData";
-import { canExecuteVoiceIntent, formatIncidentDetail, formatSituationSummary, formatStoppedLines, parseVoiceCommand } from "./voiceCommand";
+import { canExecuteVoiceIntent, formatIncidentDetail, formatLineInventory, formatSituationSummary, formatStoppedLines, parseVoiceCommand } from "./voiceCommand";
 
 describe("parseVoiceCommand", () => {
   it("requires confirmation before creating a critical call", () => {
@@ -85,6 +85,15 @@ describe("parseVoiceCommand", () => {
     expect(parseVoiceCommand("Detail deskripsinya apa?", INITIAL_LINES, { language: "id", focusedIncident }).incidentField).toBe("description");
     expect(formatIncidentDetail(focusedIncident, "description", "id")).toContain("Optical sensor");
     expect(formatIncidentDetail(focusedIncident, "cause", "id")).toContain("belum dikonfirmasi");
+  });
+
+  it("answers line inventory questions from application master data", () => {
+    const result = parseVoiceCommand("Ada berapa line di departement Assembly?", INITIAL_LINES, { language: "id" });
+    expect(result.intent).toBe("line_inventory");
+    expect(result.department).toBe("Assembly");
+    const response = formatLineInventory(INITIAL_LINES, result.department, "id");
+    expect(response).toContain("Departemen Assembly memiliki");
+    expect(response).toContain(INITIAL_LINES[0].shortCode);
   });
 });
 
