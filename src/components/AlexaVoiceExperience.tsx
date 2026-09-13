@@ -1,12 +1,13 @@
-import React, { useMemo, useState } from "react";
+import React, { useEffect, useMemo, useRef, useState } from "react";
 import { Bot, Check, Mic, Send, ShieldCheck, Sparkles, X } from "lucide-react";
-import type { AndonCall, AndonLine, UserProfile } from "../types";
+import type { AndonCall, AndonLine, AppLanguage, UserProfile } from "../types";
 import { canExecuteVoiceIntent, formatActiveCalls, formatDowntimeSummary, parseVoiceCommand, type ParsedVoiceCommand } from "../hackathon/voiceCommand";
 
 interface AlexaVoiceExperienceProps {
   lines: AndonLine[];
   calls: AndonCall[];
   currentUser: UserProfile;
+  language: AppLanguage;
   onCreateCall: (call: Omit<AndonCall, "id" | "ticketNo" | "timestamp" | "status">) => Promise<void>;
 }
 
@@ -16,7 +17,15 @@ const EXAMPLES = [
   "Which line has the longest downtime?"
 ];
 
-export const AlexaVoiceExperience: React.FC<AlexaVoiceExperienceProps> = ({ lines, calls, currentUser, onCreateCall }) => {
+type SpeechRecognitionInstance = {
+  lang: string; interimResults: boolean; continuous: boolean; maxAlternatives: number;
+  onstart: (() => void) | null; onend: (() => void) | null;
+  onerror: ((event: { error?: string }) => void) | null;
+  onnomatch: (() => void) | null; onresult: ((event: { results: ArrayLike<{ [index: number]: { transcript: string } }> }) => void) | null;
+  start: () => void; stop: () => void; abort: () => void;
+};
+
+export const AlexaVoiceExperience: React.FC<AlexaVoiceExperienceProps> = ({ lines, calls, currentUser, language, onCreateCall }) => {
   const [open, setOpen] = useState(false);
   const [input, setInput] = useState("");
   const [pending, setPending] = useState<ParsedVoiceCommand | null>(null);
@@ -24,7 +33,10 @@ export const AlexaVoiceExperience: React.FC<AlexaVoiceExperienceProps> = ({ line
     { role: "assistant", text: "AndonVoice is ready. I can create a controlled Andon call or read current incident status." }
   ]);
   const [listening, setListening] = useState(false);
+  const recognitionRef = useRef<SpeechRecognitionInstance | null>(null);
   const supported = useMemo(() => typeof window !== "undefined" && ("SpeechRecognition" in window || "webkitSpeechRecognition" in window), []);
+
+  useEffect(() => () => { recognitionRef.current?.abort(); recognitionRef.current = null; }, []);
 
   const respond = (transcript: string) => {
     const parsed = parseVoiceCommand(transcript, lines);
@@ -54,18 +66,46 @@ export const AlexaVoiceExperience: React.FC<AlexaVoiceExperienceProps> = ({ line
     setPending(null);
   };
 
-  const startListening = () => {
-    if (!supported) return;
-    const Recognition = (window as typeof window & { SpeechRecognition?: new () => any; webkitSpeechRecognition?: new () => any }).SpeechRecognition || (window as typeof window & { webkitSpeechRecognition?: new () => any }).webkitSpeechRecognition;
+  const addAssistantMessage = (text: string) => setMessages((prev) => [...prev, { role: "assistant", text }]);
+
+  const startListening = async () => {
+    if (!supported) { addAssistantMessage("Voice recognition is not supported here. Open this HTTPS page in Google Chrome or Microsoft Edge, or use the text command field."); return; }
+    try {
+      if (navigator.mediaDevices?.getUserMedia) {
+        const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+        stream.getTracks().forEach((track) => track.stop());
+      }
+    } catch {
+      addAssistantMessage(language === "id" ? "Izin mikrofon ditolak. Klik ikon kunci di address bar, izinkan Microphone, lalu coba lagi." : "Microphone permission was denied. Allow Microphone from the address-bar site settings, then try again.");
+      return;
+    }
+    recognitionRef.current?.abort();
+    const Recognition = (window as typeof window & { SpeechRecognition?: new () => SpeechRecognitionInstance; webkitSpeechRecognition?: new () => SpeechRecognitionInstance }).SpeechRecognition || (window as typeof window & { webkitSpeechRecognition?: new () => SpeechRecognitionInstance }).webkitSpeechRecognition;
     if (!Recognition) return;
     const recognition = new Recognition();
-    recognition.lang = "en-US";
+    recognitionRef.current = recognition;
+    recognition.lang = language === "id" ? "id-ID" : "en-US";
     recognition.interimResults = false;
+    recognition.continuous = false;
+    recognition.maxAlternatives = 1;
     recognition.onstart = () => setListening(true);
-    recognition.onend = () => setListening(false);
-    recognition.onerror = () => setListening(false);
-    recognition.onresult = (event: any) => respond(event.results[0][0].transcript);
-    recognition.start();
+    recognition.onend = () => { setListening(false); recognitionRef.current = null; };
+    recognition.onnomatch = () => addAssistantMessage(language === "id" ? "Suara terdengar, tetapi perintah belum dikenali. Coba bicara lebih dekat dan sebutkan nama line." : "I heard audio but could not recognize the command. Try again and include the production line.");
+    recognition.onerror = (event) => {
+      setListening(false); recognitionRef.current = null;
+      const message = event.error === "not-allowed" || event.error === "service-not-allowed"
+        ? (language === "id" ? "Akses mikrofon diblokir oleh browser. Izinkan Microphone untuk situs ini." : "Microphone access is blocked by the browser. Allow it for this site.")
+        : event.error === "no-speech"
+          ? (language === "id" ? "Tidak ada suara yang terdeteksi. Tekan mikrofon dan mulai bicara setelah indikator merah muncul." : "No speech was detected. Start speaking after the microphone turns red.")
+          : (language === "id" ? `Pengenalan suara gagal (${event.error || "unknown"}). Kamu tetap bisa memakai kolom teks.` : `Voice recognition failed (${event.error || "unknown"}). You can still use the text command field.`);
+      addAssistantMessage(message);
+    };
+    recognition.onresult = (event) => {
+      const transcript = Array.from(event.results).map((result) => result[0]?.transcript || "").join(" ").trim();
+      if (transcript) respond(transcript);
+    };
+    try { recognition.start(); }
+    catch { recognitionRef.current = null; setListening(false); addAssistantMessage(language === "id" ? "Mikrofon masih aktif. Tunggu sebentar lalu coba kembali." : "The microphone is already active. Wait a moment and try again."); }
   };
 
   if (!open) return (
@@ -87,7 +127,8 @@ export const AlexaVoiceExperience: React.FC<AlexaVoiceExperienceProps> = ({ line
       </div>
       <div className="border-t border-white/10 p-4">
         <div className="mb-3 flex gap-2 overflow-x-auto pb-1">{EXAMPLES.map((example) => <button key={example} onClick={() => respond(example)} className="whitespace-nowrap rounded-full border border-white/10 bg-white/5 px-3 py-1.5 text-[11px] text-slate-300 hover:border-cyan-400/50">{example}</button>)}</div>
-        <div className="flex gap-2"><button title={supported ? "Speak" : "Speech recognition is not supported in this browser"} onClick={startListening} disabled={!supported} className={`rounded-xl p-3 ${listening ? "bg-red-500" : "bg-white/10"} disabled:opacity-40`}><Mic className="h-5 w-5" /></button><input value={input} onChange={(event) => setInput(event.target.value)} onKeyDown={(event) => { if (event.key === "Enter" && input.trim()) respond(input); }} placeholder="Ask Alexa+ about the shop floor..." className="min-w-0 flex-1 rounded-xl border border-white/10 bg-white/5 px-4 text-sm outline-none focus:border-cyan-400" /><button onClick={() => input.trim() && respond(input)} className="rounded-xl bg-cyan-500 p-3 text-slate-950"><Send className="h-5 w-5" /></button></div>
+        {listening && <p className="mb-2 animate-pulse text-xs font-bold text-red-300">● {language === "id" ? "Mendengarkan… silakan bicara" : "Listening… speak now"}</p>}
+        <div className="flex gap-2"><button title={supported ? "Speak" : "Speech recognition requires Chrome or Edge"} onClick={listening ? () => recognitionRef.current?.stop() : startListening} className={`rounded-xl p-3 ${listening ? "bg-red-500 ring-4 ring-red-500/20" : "bg-white/10"}`}><Mic className="h-5 w-5" /></button><input value={input} onChange={(event) => setInput(event.target.value)} onKeyDown={(event) => { if (event.key === "Enter" && input.trim()) respond(input); }} placeholder={language === "id" ? "Katakan atau ketik perintah Andon…" : "Ask Alexa+ about the shop floor..."} className="min-w-0 flex-1 rounded-xl border border-white/10 bg-white/5 px-4 text-sm outline-none focus:border-cyan-400" /><button onClick={() => input.trim() && respond(input)} className="rounded-xl bg-cyan-500 p-3 text-slate-950"><Send className="h-5 w-5" /></button></div>
       </div>
     </aside>
   );
