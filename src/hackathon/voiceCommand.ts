@@ -1,6 +1,6 @@
 import type { AndonCall, AndonLine, CallCategory, CallSeverity, UserRole } from "../types";
 
-export type VoiceIntent = "create_call" | "list_active" | "downtime_summary" | "help" | "unknown";
+export type VoiceIntent = "create_call" | "list_active" | "downtime_summary" | "help" | "set_language" | "unknown";
 
 export interface ParsedVoiceCommand {
   intent: VoiceIntent;
@@ -14,6 +14,7 @@ export interface ParsedVoiceCommand {
   requiresConfirmation: boolean;
   confidence: number;
   response: string;
+  targetLanguage?: "id" | "en";
 }
 
 const CATEGORY_PATTERNS: Array<{ pattern: RegExp; category: CallCategory; label: string }> = [
@@ -40,8 +41,15 @@ export function parseVoiceCommand(transcript: string, lines: AndonLine[]): Parse
   const clean = transcript.trim();
   if (!clean) return { intent: "unknown", transcript: clean, requiresConfirmation: false, confidence: 0, response: "I did not hear a command." };
 
-  if (/help|what can|commands|bantuan/i.test(clean)) {
-    return { intent: "help", transcript: clean, requiresConfirmation: false, confidence: 1, response: "You can report an incident, list active calls, or ask for a downtime summary." };
+  if (/(gunakan|pakai|ubah|ganti|make|switch|change).*(bahasa indonesia|indonesian|indonesia language)/i.test(clean)) {
+    return { intent: "set_language", transcript: clean, targetLanguage: "id", requiresConfirmation: false, confidence: 1, response: "Baik, sekarang saya menggunakan Bahasa Indonesia. Kamu dapat melaporkan masalah, melihat panggilan aktif, atau meminta ringkasan downtime." };
+  }
+  if (/(use|switch|change|gunakan|pakai|ubah|ganti).*(english|bahasa inggris)/i.test(clean)) {
+    return { intent: "set_language", transcript: clean, targetLanguage: "en", requiresConfirmation: false, confidence: 1, response: "Okay, I will use English. You can report an incident, list active calls, or request a downtime summary." };
+  }
+  if (/help|what can|commands|bantuan|apa.*(bisa|dapat).*(lakukan|kerjakan)|bisa apa|fitur apa/i.test(clean)) {
+    const indonesian = /bantuan|apa|bisa|dapat|lakukan|kerjakan|fitur/i.test(clean);
+    return { intent: "help", transcript: clean, requiresConfirmation: false, confidence: 1, response: indonesian ? "Saya bisa membuat panggilan Andon dengan konfirmasi, menampilkan panggilan aktif, merangkum downtime, dan membantu analisis masalah 4M1E." : "I can create a confirmed Andon call, list active incidents, summarize downtime, and support 4M1E problem analysis." };
   }
   if (/downtime|longest stop|loss time/i.test(clean)) {
     return { intent: "downtime_summary", transcript: clean, requiresConfirmation: false, confidence: 0.96, response: "I will summarize current downtime." };
