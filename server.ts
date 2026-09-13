@@ -65,7 +65,7 @@ async function startServer() {
   app.use(express.json({ limit: "32kb" }));
 
   app.get("/api/health", (_req, res) => {
-    res.json({ status: "ok", version: "0.6.0", product: "AndonVoice AI", mcpProtocol: "2025-11-25", timestamp: new Date().toISOString() });
+    res.json({ status: "ok", version: "1.0.0", product: "AndonVoice AI", mcpProtocol: "2025-11-25", timestamp: new Date().toISOString() });
   });
   app.get("/api/ready", (_req, res) => res.json({ ready: true, bedrock: process.env.BEDROCK_ENABLED === "true", persistence: Boolean(process.env.INCIDENT_STORE_FILE) }));
   app.get("/api/metrics", apiAuthentication, (_req, res) => res.json(telemetrySnapshot()));

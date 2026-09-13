@@ -9,7 +9,7 @@ import { apiAuthentication, apiRateLimit } from "./security";
 const textResult = (value: unknown) => ({ content: [{ type: "text" as const, text: JSON.stringify(value, null, 2) }] });
 
 export function createAndonMcpServer(): McpServer {
-  const server = new McpServer({ name: "andonvoice-ai", version: "0.3.0" });
+  const server = new McpServer({ name: "andonvoice-ai", version: "1.0.0" });
 
   server.registerTool("create_andon_call", {
     title: "Create Andon call",

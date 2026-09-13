@@ -18,7 +18,7 @@ It identifies the line and category, shows the intended action, and waits for ex
 - **Experience:** simulated Alexa+ web experience plus a self-hosted MCP server
 - **MCP transport:** stateless Streamable HTTP at `POST /mcp`
 - **Protocol target:** `2025-11-25`
-- **Optional mini challenge:** AWS Builder through the Bedrock analysis adapter planned for v0.3
+- **AWS intelligence:** Amazon Bedrock Runtime integration with a deterministic 4M1E fallback
 
 ## Working features
 
@@ -28,7 +28,7 @@ It identifies the line and category, shows the intended action, and waits for ex
 - Natural-language intent parsing for create, list, and downtime requests
 - Human confirmation before write actions
 - Duplicate active-call interlock and role-controlled closure
-- Four MCP tools exposed over Streamable HTTP
+- Five MCP tools exposed over Streamable HTTP
 - Firebase production adapter and self-contained demo mode
 - Audit trail, Telegram notifications, master-data import/export, and bilingual UI
 
@@ -40,6 +40,7 @@ It identifies the line and category, shows the intended action, and waits for ex
 | `list_active_calls` | Read | May be filtered by production line |
 | `get_downtime_summary` | Read | Returns active stops and longest duration |
 | `update_incident_status` | Write | Confirmation required; closure restricted by role |
+| `analyze_incident_4m1e` | Read | Decision support only; cannot change incident state |
 
 ## Quick start
 
@@ -102,12 +103,15 @@ flowchart TD
 - The hackathon demo contains fictional production lines and no employer data.
 - This prototype is not a certified safety system and must not replace emergency controls.
 
-## Roadmap
+## Deployment and submission
 
-- v0.1 — Alexa+ simulator, command parser, MCP tools, safety controls
-- v0.2 — shared persistence between web UI and MCP, richer confirmation context
-- v0.3 — Amazon Bedrock 4M1E analysis adapter and evaluation suite
-- v1.0 — English demo video, deployment guide, final Devpost submission
+- [Deployment guide](docs/DEPLOYMENT.md)
+- [Architecture and trust boundaries](docs/ARCHITECTURE.md)
+- [Three-minute demo script](docs/DEMO_SCRIPT.md)
+- [Devpost submission draft](docs/DEVPOST_SUBMISSION.md)
+- [Security and responsible-use model](docs/SECURITY.md)
+
+Release 1.0 completes the implementation roadmap. Add the public demo and video URLs after deployment and recording.
 
 ## License
 
